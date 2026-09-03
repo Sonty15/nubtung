@@ -95,7 +95,7 @@ export default function TransactionTable({ transactions, loading }: TransactionT
                 </td>
               </tr>
             ) : (
-              filtered.map((tx) => {
+              filtered.map((tx, idx) => {
                 let badgeColor = 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900';
                 let typeText = 'รายจ่าย';
                 if (tx.type === 'INCOME') {
@@ -107,7 +107,7 @@ export default function TransactionTable({ transactions, loading }: TransactionT
                 }
 
                 return (
-                  <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
+                  <tr key={`${tx.id || 'row'}-${idx}`} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="px-5 py-3 whitespace-nowrap text-slate-500 dark:text-slate-400 text-xs">
                       <div>{tx.date}</div>
                       {tx.time && <div className="text-[11px] text-slate-400">{tx.time}</div>}
