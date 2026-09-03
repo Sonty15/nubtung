@@ -63,7 +63,7 @@ export default function TrendChart({ data, loading }: TrendChartProps) {
 
   if (loading) {
     return (
-      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs h-80 flex items-center justify-center">
+      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs h-full min-h-[380px] flex items-center justify-center">
         <div className="w-full h-full bg-slate-100 dark:bg-slate-800/40 animate-pulse rounded-2xl" />
       </div>
     );
@@ -71,7 +71,7 @@ export default function TrendChart({ data, loading }: TrendChartProps) {
 
   if (data.length === 0) {
     return (
-      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs h-80 flex flex-col items-center justify-center text-slate-400 text-xs">
+      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs h-full min-h-[380px] flex flex-col items-center justify-center text-slate-400 text-xs">
         <BarChart3 className="w-8 h-8 mb-2 opacity-30" />
         <span>ไม่มีข้อมูลธุรกรรมในช่วงเวลานี้</span>
       </div>
@@ -79,8 +79,8 @@ export default function TrendChart({ data, loading }: TrendChartProps) {
   }
 
   return (
-    <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+    <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs h-full flex flex-col justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
         <div>
           <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-emerald-500" />
@@ -118,7 +118,8 @@ export default function TrendChart({ data, loading }: TrendChartProps) {
         </div>
       </div>
 
-      <div className="h-64 sm:h-72 w-full">
+      {/* Chart Canvas filling the entire card height */}
+      <div className="flex-1 w-full min-h-[300px] pt-2">
         <ResponsiveContainer width="100%" height="100%">
           {chartType === 'BAR' ? (
             <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -140,11 +141,11 @@ export default function TrendChart({ data, loading }: TrendChartProps) {
                 verticalAlign="top"
                 align="right"
                 iconType="circle"
-                wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
+                wrapperStyle={{ paddingBottom: '8px', fontSize: '11px' }}
                 formatter={(value) => (value === 'income' ? '🟢 รายรับ' : '🔴 รายจ่าย')}
               />
-              <Bar dataKey="income" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={32} />
-              <Bar dataKey="expense" fill="#f43f5e" radius={[6, 6, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="income" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="expense" fill="#f43f5e" radius={[6, 6, 0, 0]} maxBarSize={36} />
             </BarChart>
           ) : (
             <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -176,7 +177,7 @@ export default function TrendChart({ data, loading }: TrendChartProps) {
                 verticalAlign="top"
                 align="right"
                 iconType="circle"
-                wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
+                wrapperStyle={{ paddingBottom: '8px', fontSize: '11px' }}
                 formatter={(value) => (value === 'income' ? '🟢 รายรับ' : '🔴 รายจ่าย')}
               />
               <Area
