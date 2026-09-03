@@ -33,16 +33,16 @@ export default function TransactionsPage() {
   }, [fetchTransactions]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0b0f19] transition-colors">
       <Navbar onSyncComplete={fetchTransactions} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               รายการธุรกรรมทั้งหมด (Transactions)
             </h1>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               ข้อมูลทั้งหมดในแท็บ '📝 รายการทั้งหมด' บน Google Sheets สามารถค้นหา กรอง และดูสลิปได้
             </p>
           </div>
@@ -53,14 +53,14 @@ export default function TransactionsPage() {
         </div>
 
         {error && (
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
+          <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between">
             <div>
               <span className="font-bold">ข้อความแจ้งเตือน: </span>
               <span>{error}</span>
             </div>
             <button
               onClick={fetchTransactions}
-              className="px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg font-medium transition-colors"
+              className="px-3 py-1 bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 text-amber-900 dark:text-amber-100 rounded-xl font-medium transition-colors"
             >
               ลองใหม่
             </button>

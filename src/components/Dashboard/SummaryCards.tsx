@@ -1,79 +1,135 @@
-import { ArrowDownRight, ArrowUpRight, Repeat, Wallet } from 'lucide-react';
+'use client';
+
+import { ArrowDownRight, ArrowUpRight, Repeat, Wallet, Building2 } from 'lucide-react';
 import { DashboardSummary } from '@/types';
 
 interface SummaryCardsProps {
   summary: DashboardSummary | null;
   loading: boolean;
+  kplusBalance?: number;
+  makeBalance?: number;
 }
 
-export default function SummaryCards({ summary, loading }: SummaryCardsProps) {
+export default function SummaryCards({
+  summary,
+  loading,
+  kplusBalance = 43253.07,
+  makeBalance = 903.29,
+}: SummaryCardsProps) {
   const cards = [
     {
-      title: 'รายรับทั้งหมด',
+      title: 'รายรับในช่วงเวลา',
       amount: summary?.totalIncome || 0,
       icon: ArrowDownRight,
       color: 'emerald',
-      bg: 'bg-emerald-50',
-      text: 'text-emerald-700',
-      border: 'border-emerald-100',
+      bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+      text: 'text-emerald-600 dark:text-emerald-400',
+      border: 'border-emerald-200/60 dark:border-emerald-800/40',
+      badge: 'เงินเข้า',
     },
     {
-      title: 'รายจ่ายทั้งหมด',
+      title: 'รายจ่ายในช่วงเวลา',
       amount: summary?.totalExpense || 0,
       icon: ArrowUpRight,
       color: 'rose',
-      bg: 'bg-rose-50',
-      text: 'text-rose-700',
-      border: 'border-rose-100',
+      bg: 'bg-rose-50 dark:bg-rose-950/40',
+      text: 'text-rose-600 dark:text-rose-400',
+      border: 'border-rose-200/60 dark:border-rose-800/40',
+      badge: 'เงินออก',
     },
     {
-      title: 'ยอดเงินคงเหลือสุทธิ',
+      title: 'กระแสเงินสดสุทธิ (Net Flow)',
       amount: summary?.netBalance || 0,
       icon: Wallet,
       color: 'sky',
-      bg: 'bg-sky-50',
-      text: 'text-sky-700',
-      border: 'border-sky-100',
+      bg: 'bg-sky-50 dark:bg-sky-950/40',
+      text: 'text-sky-600 dark:text-sky-400',
+      border: 'border-sky-200/60 dark:border-sky-800/40',
+      badge: 'รายรับ - รายจ่าย',
     },
     {
-      title: 'โอนระหว่างบัญชี (ไม่นับเป็นรายจ่าย)',
+      title: 'โอนระหว่างบัญชี',
       amount: summary?.transferTotal || 0,
       icon: Repeat,
       color: 'amber',
-      bg: 'bg-amber-50',
-      text: 'text-amber-700',
-      border: 'border-amber-100',
+      bg: 'bg-amber-50 dark:bg-amber-950/40',
+      text: 'text-amber-600 dark:text-amber-400',
+      border: 'border-amber-200/60 dark:border-amber-800/40',
+      badge: 'ไม่นับเป็นรายจ่าย',
     },
   ];
 
+  const totalBankMoney = kplusBalance + makeBalance;
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card, idx) => {
-        const Icon = card.icon;
-        return (
-          <div
-            key={idx}
-            className={`p-5 rounded-2xl bg-white border ${card.border} shadow-xs flex flex-col justify-between`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-gray-500">{card.title}</span>
-              <div className={`w-8 h-8 rounded-xl ${card.bg} ${card.text} flex items-center justify-center`}>
-                <Icon className="w-4 h-4" />
+    <div className="space-y-4">
+      {/* Real Account Balances Header Bar */}
+      <div className="p-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 rounded-3xl text-white shadow-lg shadow-emerald-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0">
+            <Building2 className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-xs uppercase tracking-wider text-emerald-100 font-semibold block">
+              ยอดเงินในบัญชีจริงทั้งหมด (Total Cash in Accounts)
+            </span>
+            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              ฿{totalBankMoney.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+
+        {/* Breakdown by Bank */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <div className="px-3.5 py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+            <span className="text-[10px] text-emerald-100 font-medium block">🔵 K PLUS (กสิกร)</span>
+            <span className="text-sm font-bold">฿{kplusBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="px-3.5 py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+            <span className="text-[10px] text-emerald-100 font-medium block">🟡 Make by KBank</span>
+            <span className="text-sm font-bold">฿{makeBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Period Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((card, idx) => {
+          const Icon = card.icon;
+          return (
+            <div
+              key={idx}
+              className={`p-5 rounded-3xl bg-white dark:bg-slate-900 border ${card.border} shadow-xs flex flex-col justify-between transition-all hover:shadow-md`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{card.title}</span>
+                <div className={`w-8 h-8 rounded-xl ${card.bg} ${card.text} flex items-center justify-center`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+              </div>
+
+              <div>
+                {loading ? (
+                  <div className="h-8 w-28 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-lg" />
+                ) : (
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-2xl font-bold tracking-tight ${card.text}`}>
+                      {card.amount < 0 ? '-' : ''}฿
+                      {Math.abs(card.amount).toLocaleString('th-TH', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                )}
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-1 font-medium">
+                  {card.badge}
+                </span>
               </div>
             </div>
-
-            <div>
-              {loading ? (
-                <div className="h-7 w-28 bg-gray-100 animate-pulse rounded-lg" />
-              ) : (
-                <span className={`text-2xl font-bold tracking-tight ${card.text}`}>
-                  ฿{card.amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

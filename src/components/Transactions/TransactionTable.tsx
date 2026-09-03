@@ -16,9 +16,9 @@ export default function TransactionTable({ transactions, loading }: TransactionT
 
   const filtered = transactions.filter((tx) => {
     const matchSearch =
-      tx.note.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.account.toLowerCase().includes(searchTerm.toLowerCase());
+      (tx.note || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (tx.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (tx.account || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchType = selectedType === 'ALL' || tx.type === selectedType;
     const matchAccount = selectedAccount === 'ALL' || tx.account === selectedAccount;
@@ -27,26 +27,26 @@ export default function TransactionTable({ transactions, loading }: TransactionT
   });
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden transition-colors">
       {/* Table controls */}
-      <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="ค้นหารายการ, ร้านค้า, หมวดหมู่..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
+            className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 transition-all placeholder:text-slate-400"
           />
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-gray-400 hidden sm:block" />
+          <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="text-xs bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-3 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="ALL">ประเภททั้งหมด</option>
             <option value="EXPENSE">🔴 รายจ่าย</option>
@@ -57,7 +57,7 @@ export default function TransactionTable({ transactions, loading }: TransactionT
           <select
             value={selectedAccount}
             onChange={(e) => setSelectedAccount(e.target.value)}
-            className="text-xs bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-3 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="ALL">บัญชีทั้งหมด</option>
             <option value="K PLUS">K PLUS</option>
@@ -69,89 +69,98 @@ export default function TransactionTable({ transactions, loading }: TransactionT
 
       {/* Table list */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50/75 text-gray-500 font-medium text-xs uppercase border-b border-gray-100">
+        <table className="w-full text-left text-xs sm:text-sm">
+          <thead className="bg-slate-50/80 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase border-b border-slate-100 dark:border-slate-800">
             <tr>
-              <th className="px-5 py-3">วัน-เวลา</th>
-              <th className="px-5 py-3">ประเภท</th>
-              <th className="px-5 py-3">หมวดหมู่</th>
-              <th className="px-5 py-3">บัญชี</th>
-              <th className="px-5 py-3">รายละเอียด</th>
-              <th className="px-5 py-3 text-right">จำนวนเงิน</th>
-              <th className="px-5 py-3 text-center">สลิป</th>
+              <th className="px-5 py-3.5">วัน-เวลา</th>
+              <th className="px-5 py-3.5">ประเภท</th>
+              <th className="px-5 py-3.5">หมวดหมู่</th>
+              <th className="px-5 py-3.5">บัญชี</th>
+              <th className="px-5 py-3.5">รายละเอียด</th>
+              <th className="px-5 py-3.5 text-right">จำนวนเงิน</th>
+              <th className="px-5 py-3.5 text-center">สลิป</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 text-gray-700">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
             {loading ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-400">
+                <td colSpan={7} className="text-center py-12 text-slate-400">
                   กำลังโหลดข้อมูลจาก Google Sheets...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-400">
-                  ไม่พบรายการ
+                <td colSpan={7} className="text-center py-12 text-slate-400">
+                  ไม่พบรายการที่ตรงกับเงื่อนไข
                 </td>
               </tr>
             ) : (
               filtered.map((tx) => {
-                let badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
+                let badgeColor = 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900';
                 let typeText = 'รายจ่าย';
-                let amountPrefix = '-';
-
                 if (tx.type === 'INCOME') {
-                  badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                  badgeColor = 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900';
                   typeText = 'รายรับ';
-                  amountPrefix = '+';
                 } else if (tx.type === 'TRANSFER') {
-                  badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
-                  typeText = 'โอนย้าย';
-                  amountPrefix = '🔄 ';
+                  badgeColor = 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900';
+                  typeText = 'โอนย้ายเงิน';
                 }
 
                 return (
-                  <tr key={tx.id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="px-5 py-3.5 whitespace-nowrap text-xs text-gray-500">
+                  <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-5 py-3 whitespace-nowrap text-slate-500 dark:text-slate-400 text-xs">
                       <div>{tx.date}</div>
-                      <div className="text-[11px] text-gray-400">{tx.time}</div>
+                      {tx.time && <div className="text-[11px] text-slate-400">{tx.time}</div>}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${badgeColor}`}>
+
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold border ${badgeColor}`}>
                         {typeText}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md font-medium">
-                        {tx.category}
-                      </span>
+
+                    <td className="px-5 py-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">
+                      {tx.category}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <span className="text-xs font-medium text-gray-600">
+
+                    <td className="px-5 py-3 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                      <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-md">
                         {tx.account}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 max-w-xs truncate text-gray-800">
+
+                    <td className="px-5 py-3 max-w-xs truncate text-slate-800 dark:text-slate-200 text-xs" title={tx.note}>
                       {tx.note || '-'}
                     </td>
-                    <td className={`px-5 py-3.5 text-right font-semibold whitespace-nowrap ${
-                      tx.type === 'INCOME' ? 'text-emerald-600' : tx.type === 'TRANSFER' ? 'text-amber-600' : 'text-gray-900'
-                    }`}>
-                      {amountPrefix}฿{tx.amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+                    <td className="px-5 py-3 text-right whitespace-nowrap font-bold text-xs sm:text-sm">
+                      <span
+                        className={
+                          tx.type === 'INCOME'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : tx.type === 'TRANSFER'
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-slate-900 dark:text-slate-100'
+                        }
+                      >
+                        {tx.type === 'INCOME' ? '+' : tx.type === 'TRANSFER' ? '🔄 ' : '-'}฿
+                        {tx.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                      </span>
                     </td>
-                    <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                      {tx.slipUrl ? (
+
+                    <td className="px-5 py-3 text-center whitespace-nowrap">
+                      {tx.slipUrl && tx.slipUrl !== '-' ? (
                         <a
-                          href={tx.slipUrl}
+                          href={tx.slipUrl.startsWith('http') ? tx.slipUrl : undefined}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                          className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
                         >
-                          <span>ดูสลิป</span>
+                          <span>สลิป</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       ) : (
-                        <span className="text-xs text-gray-300">-</span>
+                        <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
                       )}
                     </td>
                   </tr>
@@ -160,6 +169,11 @@ export default function TransactionTable({ transactions, loading }: TransactionT
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <span>แสดง {filtered.length} รายการ</span>
+        <span>เชื่อมต่อ Google Sheets สด</span>
       </div>
     </div>
   );

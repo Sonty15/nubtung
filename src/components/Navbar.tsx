@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Wallet, LayoutDashboard, ListOrdered, LogOut, FileSpreadsheet } from 'lucide-react';
+import { Wallet, LayoutDashboard, ListOrdered, LogOut } from 'lucide-react';
 import SyncButton from './SyncButton';
+import ThemeToggle from './ThemeToggle';
 
 export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void }) {
   const pathname = usePathname();
@@ -21,22 +22,22 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-xs">
+    <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 shadow-xs transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-emerald-200 shadow-md">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-emerald-500/20 shadow-md group-hover:scale-105 transition-transform">
               <Wallet className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xl font-bold text-gray-900 tracking-tight">นับตังค์</span>
-              <span className="text-xs text-emerald-600 block font-medium">Nubtang Finance</span>
+              <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">นับตังค์</span>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 block font-semibold uppercase tracking-wider">Nubtang Finance</span>
             </div>
-          </div>
+          </Link>
 
           {/* Navigation links */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1 bg-slate-100/70 dark:bg-slate-800/50 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
@@ -44,10 +45,10 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                     isActive
-                      ? 'bg-emerald-50 text-emerald-700 font-semibold'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -58,13 +59,15 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
           </nav>
 
           {/* Right Action buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <SyncButton onSyncComplete={onSyncComplete} />
+
+            <ThemeToggle />
 
             <button
               onClick={handleLogout}
               title="ออกจากระบบ"
-              className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+              className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
