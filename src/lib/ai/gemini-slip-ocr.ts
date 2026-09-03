@@ -86,24 +86,17 @@ Important Instructions:
     throw new Error(`Failed to parse AI response as JSON: ${rawText}`);
   }
 
-  // Check for self or partner transfer based on RECEIVER (not sender)
+  // Check for self transfer based on RECEIVER (Only user himself: วรโชติ)
   const receiver = (parsed.receiverName || '').toLowerCase();
   const note = (parsed.note || '').toLowerCase();
   const pocket = (parsed.pocketName || '').toLowerCase();
 
-  // Known transfer names: วรโชติ (User himself) & ดวงชีวัน / ดวงชีวัน โต๊ะเหลือ (Partner)
-  const transferNames = [
-    'วรโชติ',
-    'worachot',
-    'ดวงชีวัน',
-    'duangcheewan',
-    'โต๊ะเหลือ',
-  ];
-
-  let isSelfOrPartnerTransfer = false;
-  for (const name of transferNames) {
+  // Self-transfer is ONLY for user himself (วรโชติ)
+  const selfNames = ['วรโชติ', 'worachot'];
+  let isSelfTransfer = false;
+  for (const name of selfNames) {
     if (receiver.includes(name) || (note.includes(name) && !note.includes('ร้าน'))) {
-      isSelfOrPartnerTransfer = true;
+      isSelfTransfer = true;
       break;
     }
   }
@@ -130,10 +123,11 @@ Important Instructions:
     }
   }
 
+  // Default: EXPENSE (เงินออกบัญชี)
   let transactionType: TransactionType = 'EXPENSE';
 
-  // Override if transfer to self or partner
-  if (isSelfOrPartnerTransfer || parsed.suggestedCategory === 'โอนระหว่างบัญชี') {
+  // Override only for self-transfers between user's own accounts
+  if (isSelfTransfer) {
     transactionType = 'TRANSFER';
     category = 'โอนระหว่างบัญชี';
   }
@@ -147,7 +141,7 @@ Important Instructions:
     receiverAccount: parsed.receiverAccount || undefined,
     category,
     note: parsed.note || parsed.receiverName || 'สลิปโอนเงิน',
-    isSelfTransfer: isSelfOrPartnerTransfer,
+    isSelfTransfer,
     type: transactionType,
   };
 }
