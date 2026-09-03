@@ -29,23 +29,23 @@ const CategoryTooltip = ({ active, payload, totalExpense }: any) => {
     const percent = totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0';
 
     return (
-      <div className="bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-md p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 text-xs space-y-1.5 min-w-[190px] text-white z-50">
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-1.5">
+      <div className="bg-[#0f172a] p-3.5 rounded-2xl shadow-2xl border border-slate-700 text-xs space-y-2 min-w-[200px] text-white select-none pointer-events-none">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
           <span
-            className="w-3 h-3 rounded-full shrink-0 shadow-xs"
+            className="w-3 h-3 rounded-full shrink-0 ring-2 ring-white/20"
             style={{ backgroundColor: fill }}
           />
           <span className="font-bold text-slate-100 truncate text-[13px]">{name}</span>
         </div>
-        <div className="flex justify-between items-center text-slate-300 pt-0.5">
-          <span>ยอดใช้จ่าย:</span>
+        <div className="flex justify-between items-center text-slate-300">
+          <span className="text-[11px] text-slate-400">ยอดใช้จ่าย:</span>
           <span className="font-bold text-emerald-400 text-sm">
             ฿{Number(value).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
-        <div className="flex justify-between items-center text-slate-400 text-[11px]">
-          <span>สัดส่วน:</span>
-          <span className="font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-md">
+        <div className="flex justify-between items-center text-slate-300">
+          <span className="text-[11px] text-slate-400">สัดส่วน:</span>
+          <span className="font-semibold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-md text-[11px]">
             {percent}% ของทั้งหมด
           </span>
         </div>
@@ -99,7 +99,15 @@ export default function CategoryPieChart({
 
         {/* Donut Chart */}
         <div className="h-44 w-full relative flex items-center justify-center">
-          <ResponsiveContainer width="100%" height="100%">
+          {/* Center Text (Placed strictly behind tooltip with z-0) */}
+          <div className="absolute z-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="text-[10px] text-slate-400 font-medium">ค่าใช้จ่าย</span>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+              {data.length} หมวดหมู่
+            </span>
+          </div>
+
+          <ResponsiveContainer width="100%" height="100%" className="relative z-10">
             <PieChart>
               <Pie
                 data={data}
@@ -114,17 +122,12 @@ export default function CategoryPieChart({
                   <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
               </Pie>
-              <Tooltip content={<CategoryTooltip totalExpense={totalExpense} />} />
+              <Tooltip
+                content={<CategoryTooltip totalExpense={totalExpense} />}
+                wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
+              />
             </PieChart>
           </ResponsiveContainer>
-
-          {/* Center Text */}
-          <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-[10px] text-slate-400 font-medium">ค่าใช้จ่าย</span>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
-              {data.length} หมวดหมู่
-            </span>
-          </div>
         </div>
 
         {/* Top Category Legend List */}
