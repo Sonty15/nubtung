@@ -54,7 +54,7 @@ JSON Schema:
 Important Instructions:
 1. Ensure amount is a pure number without commas or currency symbols.
 2. If date is in Buddhist Era (e.g., 2567, 2568, 2569), convert to Gregorian calendar (e.g., 2024, 2025, 2026).
-3. Sender is usually the account owner. Check receiver carefully.
+3. Identify BOTH Sender ('จาก' / 'โอนจาก') and Receiver ('ไปยัง' / 'โอนให้') accurately. If someone else transfers money to the user (e.g. วรโชติ), senderName must be that person's name.
 4. Return ONLY valid JSON, no markdown codeblocks, no explanations.
 `;
 
