@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from '@/components/Navbar';
 import SummaryCards from '@/components/Dashboard/SummaryCards';
-import PeriodSelector, { PeriodMode } from '@/components/Dashboard/PeriodSelector';
+import PeriodSelector, { PeriodMode, getSalaryCycleRange } from '@/components/Dashboard/PeriodSelector';
 import TrendChart, { ChartDataPoint } from '@/components/Dashboard/TrendChart';
 import CategoryPieChart from '@/components/Dashboard/CategoryPieChart';
 import ManualTransactionModal from '@/components/Transactions/ManualTransactionModal';
@@ -27,9 +27,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Period Selector State (Default: ALL)
-  const [periodMode, setPeriodMode] = useState<PeriodMode>('ALL');
+  // Period Selector State (Default: MONTH with Salary Cycle)
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTH');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [useSalaryCycle, setUseSalaryCycle] = useState<boolean>(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -74,6 +75,11 @@ export default function DashboardPage() {
         return txY === year;
       }
       if (periodMode === 'MONTH') {
+        if (useSalaryCycle) {
+          const { startDate, endDate } = getSalaryCycleRange(selectedDate, 26);
+          // When in salary cycle view, only show real transactions (ignore manual balance adjustments)
+          return txDate >= startDate && txDate <= endDate && tx.source !== 'MANUAL';
+        }
         return txY === year && txM - 1 === month;
       }
       if (periodMode === 'WEEK') {
@@ -86,14 +92,14 @@ export default function DashboardPage() {
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
 
-        return txDate >= startOfWeek && txDate <= endOfWeek;
+        return txDate >= startOfWeek && txDate <= endOfWeek && tx.source !== 'MANUAL';
       }
       if (periodMode === 'DAY') {
-        return txY === year && txM - 1 === month && txD === date;
+        return txY === year && txM - 1 === month && txD === date && tx.source !== 'MANUAL';
       }
       return true;
     });
-  }, [allTransactions, periodMode, selectedDate]);
+  }, [allTransactions, periodMode, selectedDate, useSalaryCycle]);
 
   // Compute metrics for the filtered period
   const periodMetrics = useMemo(() => {
@@ -218,12 +224,14 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Period Selector Component (ALL, YEAR, MONTH, WEEK, DAY + Prev/Next) */}
+        {/* Period Selector Component (ALL, YEAR, MONTH, WEEK, DAY + Prev/Next + Salary Cycle) */}
         <PeriodSelector
           mode={periodMode}
           onModeChange={setPeriodMode}
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}
+          useSalaryCycle={useSalaryCycle}
+          onToggleSalaryCycle={setUseSalaryCycle}
         />
 
         {/* 4 Summary Cards + Real Account Balances Header */}
