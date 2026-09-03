@@ -15,21 +15,35 @@ export interface DriveFileItem {
 }
 
 /**
- * List image files inside a specific Google Drive folder
+ * List all image files inside a specific Google Drive folder (with pagination)
  */
 export async function listSlipsInFolder(folderId: string): Promise<DriveFileItem[]> {
   const drive = await getDriveClient();
 
   const query = `'${folderId}' in parents and (mimeType contains 'image/') and trashed = false`;
+  const allFiles: DriveFileItem[] = [];
+  let pageToken: string | undefined = undefined;
 
-  const res = await drive.files.list({
-    q: query,
-    fields: 'files(id, name, mimeType, webViewLink, createdTime)',
-    orderBy: 'createdTime desc',
-    pageSize: 50,
-  });
+  while (true) {
+    const res: any = await drive.files.list({
+      q: query,
+      fields: 'nextPageToken, files(id, name, mimeType, webViewLink, createdTime)',
+      orderBy: 'createdTime desc',
+      pageSize: 1000,
+      pageToken: pageToken || undefined,
+    });
 
-  return (res.data.files as DriveFileItem[]) || [];
+    if (res.data && res.data.files) {
+      allFiles.push(...(res.data.files as DriveFileItem[]));
+    }
+
+    if (!res.data.nextPageToken) {
+      break;
+    }
+    pageToken = res.data.nextPageToken;
+  }
+
+  return allFiles;
 }
 
 /**
