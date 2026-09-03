@@ -40,11 +40,22 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
       const slipProcessed = slipData.stats?.processed ?? 0;
       const stmTotal = stmData.total ?? 0;
 
-      setResultMessage(
-        `ซิงค์สำเร็จ! (สลิปใหม่: ${slipProcessed} รายการ, รายการทั้งหมด: ${stmTotal} รายการ)`
-      );
+      if (slipProcessed > 0 && stmTotal > 0) {
+        setResultMessage(`ซิงค์สำเร็จ! (พบสลิปใหม่ ${slipProcessed} รายการ, Statement ${stmTotal} รายการ)`);
+      } else if (slipProcessed > 0) {
+        setResultMessage(`ซิงค์สำเร็จ! (เพิ่มสลิปใหม่ ${slipProcessed} รายการ)`);
+      } else if (stmTotal > 0) {
+        setResultMessage(`ซิงค์สำเร็จ! (อัปเดต Statement ${stmTotal} รายการ)`);
+      } else {
+        setResultMessage('ข้อมูลเป็นปัจจุบันแล้ว (ไม่มีสลิปหรือ Statement ใหม่ใน Drive)');
+      }
 
       if (onSyncComplete) onSyncComplete();
+
+      // Auto dismiss message after 5 seconds
+      setTimeout(() => {
+        setResultMessage(null);
+      }, 5000);
     } catch (err: any) {
       setIsError(true);
       setResultMessage(err.message || 'เกิดข้อผิดพลาดในการซิงค์ข้อมูล');
@@ -55,7 +66,7 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
   };
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex flex-col items-end gap-2 relative">
       <button
         onClick={handleSyncAll}
         disabled={loading}
@@ -71,12 +82,18 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
 
       {resultMessage && (
         <div
-          className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm max-w-xs ${
-            isError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+          className={`absolute top-12 right-0 z-50 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-xl border whitespace-nowrap animate-in fade-in slide-in-from-top-2 duration-200 ${
+            isError
+              ? 'bg-red-50 dark:bg-red-950/90 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'
+              : 'bg-emerald-50 dark:bg-emerald-950/90 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800'
           }`}
         >
-          {isError ? <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> : <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
-          <span>{resultMessage}</span>
+          {isError ? (
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+          ) : (
+            <CheckCircle className="w-4 h-4 shrink-0 text-emerald-500" />
+          )}
+          <span className="font-medium">{resultMessage}</span>
         </div>
       )}
     </div>
