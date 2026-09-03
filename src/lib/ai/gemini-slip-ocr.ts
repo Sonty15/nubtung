@@ -39,6 +39,7 @@ Extract the following information and output strictly in JSON format matching th
 
 JSON Schema:
 {
+  "isReceiveQrOrRequest": boolean (true if this is a QR code generation / payment request screen like "THAI QR PAYMENT" / "สามารถสแกน QR เพื่อโอนเงินเข้าบัญชี" / promptpay QR for someone to scan, and NOT an executed transfer slip),
   "amount": number (e.g. 150.00),
   "date": "YYYY-MM-DD" (e.g. "2026-09-02"),
   "time": "HH:mm:ss" (e.g. "13:30:00"),
@@ -55,7 +56,10 @@ Important Instructions:
 1. Ensure amount is a pure number without commas or currency symbols.
 2. If date is in Buddhist Era (e.g., 2567, 2568, 2569), convert to Gregorian calendar (e.g., 2024, 2025, 2026).
 3. Identify BOTH Sender ('จาก' / 'โอนจาก') and Receiver ('ไปยัง' / 'โอนให้') accurately. If someone else transfers money to the user (e.g. วรโชติ), senderName must be that person's name.
-4. Return ONLY valid JSON, no markdown codeblocks, no explanations.
+4. If this image is a QR code generation / receive money screen (มีรูป QR Code ตรงกลางขนาดใหญ่, หัวข้อ "THAI QR PAYMENT", ข้อความ "สามารถสแกน QR เพื่อโอนเงินเข้าบัญชี", หรือหน้าจอสร้าง QR รับเงินที่ยังไม่ได้จ่ายเงินจริง):
+   - Set "isReceiveQrOrRequest": true
+   - Set "amount": 0
+5. Return ONLY valid JSON, no markdown codeblocks, no explanations.
 `;
 
   const response = await ai.models.generateContent({
@@ -84,6 +88,19 @@ Important Instructions:
     parsed = JSON.parse(cleanedJson);
   } catch (err) {
     throw new Error(`Failed to parse AI response as JSON: ${rawText}`);
+  }
+
+  // Reject QR Code Generation / Receive screens
+  if (parsed.isReceiveQrOrRequest) {
+    return {
+      amount: 0,
+      date: parsed.date || new Date().toISOString().split('T')[0],
+      time: parsed.time || '12:00:00',
+      category: 'อื่นๆ',
+      note: 'QR รับเงิน (ข้ามการบันทึก)',
+      isSelfTransfer: false,
+      type: 'EXPENSE',
+    };
   }
 
   const sender = (parsed.senderName || '').toLowerCase();
