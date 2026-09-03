@@ -86,20 +86,19 @@ Important Instructions:
     throw new Error(`Failed to parse AI response as JSON: ${rawText}`);
   }
 
-  // Check for self transfer based on RECEIVER (Only user himself: วรโชติ)
+  const sender = (parsed.senderName || '').toLowerCase();
   const receiver = (parsed.receiverName || '').toLowerCase();
   const note = (parsed.note || '').toLowerCase();
   const pocket = (parsed.pocketName || '').toLowerCase();
 
-  // Self-transfer is ONLY for user himself (วรโชติ)
-  const selfNames = ['วรโชติ', 'worachot'];
-  let isSelfTransfer = false;
-  for (const name of selfNames) {
-    if (receiver.includes(name) || (note.includes(name) && !note.includes('ร้าน'))) {
-      isSelfTransfer = true;
-      break;
-    }
-  }
+  const isUserSender = sender.includes('วรโชติ') || sender.includes('worachot');
+  const isUserReceiver = receiver.includes('วรโชติ') || receiver.includes('worachot') || (note.includes('วรโชติ') && !note.includes('ร้าน'));
+
+  // 1. Incoming Transfer: Someone else sends money to user -> INCOME
+  const isIncomingTransfer = isUserReceiver && !isUserSender && sender.length > 0;
+
+  // 2. Self Transfer: User transfers money to himself -> TRANSFER
+  const isSelfTransfer = isUserSender && isUserReceiver;
 
   // Resolve category by Color Theme for Make by KBank
   let category = parsed.suggestedCategory || 'อื่นๆ';
@@ -126,8 +125,10 @@ Important Instructions:
   // Default: EXPENSE (เงินออกบัญชี)
   let transactionType: TransactionType = 'EXPENSE';
 
-  // Override only for self-transfers between user's own accounts
-  if (isSelfTransfer) {
+  if (isIncomingTransfer) {
+    transactionType = 'INCOME';
+    category = 'เงินเดือน/รายรับ';
+  } else if (isSelfTransfer) {
     transactionType = 'TRANSFER';
     category = 'โอนระหว่างบัญชี';
   }
@@ -140,7 +141,7 @@ Important Instructions:
     receiverName: parsed.receiverName || undefined,
     receiverAccount: parsed.receiverAccount || undefined,
     category,
-    note: parsed.note || parsed.receiverName || 'สลิปโอนเงิน',
+    note: parsed.note || (isIncomingTransfer ? `รับโอนจาก ${parsed.senderName}` : parsed.receiverName) || 'สลิปโอนเงิน',
     isSelfTransfer,
     type: transactionType,
   };
