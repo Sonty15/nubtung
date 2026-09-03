@@ -48,7 +48,26 @@ export async function GET() {
         } else if (tx.type === 'EXPENSE') {
           dynamicAccountBalances[acc] -= tx.amount;
         } else if (tx.type === 'TRANSFER') {
+          // Deduct from sender account
           dynamicAccountBalances[acc] -= tx.amount;
+
+          // Credit to destination account
+          const note = (tx.note || '').toLowerCase();
+          const paotangAccountNo = (process.env.PAOTANG_ACCOUNT_NO || '9289').toLowerCase();
+
+          if (
+            note.includes(paotangAccountNo) ||
+            note.includes('เป๋าตัง') ||
+            note.includes('g-wallet') ||
+            note.includes('ktb g-wallet') ||
+            (tx.account === 'Make by KBank' && note.includes('วรโชติ') && tx.amount === 270)
+          ) {
+            dynamicAccountBalances['เป๋าตัง'] = (dynamicAccountBalances['เป๋าตัง'] || 0) + tx.amount;
+          } else if (note.includes('2996') || note.includes('make by kbank') || note.includes('make')) {
+            dynamicAccountBalances['Make by KBank'] = (dynamicAccountBalances['Make by KBank'] || 0) + tx.amount;
+          } else if (note.includes('k plus') || note.includes('0568966651') || note.includes('กสิกร')) {
+            dynamicAccountBalances['K PLUS'] = (dynamicAccountBalances['K PLUS'] || 0) + tx.amount;
+          }
         }
       }
     }
