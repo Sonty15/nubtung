@@ -39,6 +39,10 @@ yarn-error.log*
 /data/*.db-journal
 /data/*.db-wal
 /data/*.db-shm
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # superpower docs
 /docs
