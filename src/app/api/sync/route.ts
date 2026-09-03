@@ -21,17 +21,19 @@ export async function POST() {
 
     const kplusFolderId = process.env.GOOGLE_DRIVE_KPLUS_FOLDER_ID;
     const makeFolderId = process.env.GOOGLE_DRIVE_MAKE_FOLDER_ID;
+    const paotangFolderId = process.env.GOOGLE_DRIVE_PAOTANG_FOLDER_ID;
 
-    if (!kplusFolderId && !makeFolderId) {
+    if (!kplusFolderId && !makeFolderId && !paotangFolderId) {
       return NextResponse.json(
-        { error: 'Neither GOOGLE_DRIVE_KPLUS_FOLDER_ID nor GOOGLE_DRIVE_MAKE_FOLDER_ID is configured' },
+        { error: 'No Google Drive slip folders are configured' },
         { status: 400 }
       );
     }
 
-    // Prioritize Make by KBank first
+    // Prioritize Make by KBank and Paotang first
     const foldersToScan = [
       { id: makeFolderId, account: 'Make by KBank' },
+      { id: paotangFolderId, account: 'เป๋าตัง' },
       { id: kplusFolderId, account: 'K PLUS' },
     ].filter((f): f is { id: string; account: string } => Boolean(f.id));
 

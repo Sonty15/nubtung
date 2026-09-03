@@ -24,10 +24,12 @@ export async function executeFullSync() {
 
   const kplusFolderId = process.env.GOOGLE_DRIVE_KPLUS_FOLDER_ID;
   const makeFolderId = process.env.GOOGLE_DRIVE_MAKE_FOLDER_ID;
+  const paotangFolderId = process.env.GOOGLE_DRIVE_PAOTANG_FOLDER_ID;
 
-  // Prioritize Make by KBank first
+  // Prioritize Make by KBank and Paotang first
   const foldersToScan = [
     { id: makeFolderId, account: 'Make by KBank' },
+    { id: paotangFolderId, account: 'เป๋าตัง' },
     { id: kplusFolderId, account: 'K PLUS' },
   ].filter((f): f is { id: string; account: string } => Boolean(f.id));
 

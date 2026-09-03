@@ -17,6 +17,7 @@ export async function analyzeSlipImage(
   const ai = getGeminiClient();
 
   const isMakeAccount = accountContext.toLowerCase().includes('make');
+  const isPaotangAccount = accountContext.toLowerCase().includes('เป๋าตัง') || accountContext.toLowerCase().includes('paotang');
 
   const prompt = `
 You are an expert Thai banking slip OCR assistant.
@@ -33,6 +34,16 @@ Identify the primary theme/pocket color of the slip banner or header:
 - Pink (สีชมพู) -> Category: 'ของใช้ในบ้าน/ซูเปอร์' (ค่าซักผ้า)
 - Purple (สีม่วง) -> Category: 'สาธารณูปโภค (น้ำ/ไฟ/เน็ต)' (ค่าห้อง)
 - Light Green (สีเขียวอ่อน) -> Category: 'สาธารณูปโภค (น้ำ/ไฟ/เน็ต)' (จ่ายบิล)
+` : ''}
+
+${isPaotangAccount ? `
+Special Rules for เป๋าตัง (Paotang / G-Wallet) slips:
+1. Government Co-Pay / Subsidy: If the slip contains government co-pay / subsidy (e.g. คนละครึ่ง, เราชนะ, รัฐช่วยจ่าย, สิทธิประโยชน์):
+   - The 'amount' MUST STRICTLY be ONLY the actual money paid by the user / deducted from G-Wallet (เช่น 'หักจาก G-Wallet', 'ผู้ซื้อจ่าย', 'ยอดเงินที่ชำระจริง').
+   - DO NOT use the total price before discount or the government subsidy amount.
+2. If the image is a QR Code generation screen for receiving money (e.g. THAI QR PAYMENT / PromptPay QR showing the user's name/account to receive funds):
+   - Set "isReceiveQrOrRequest": true
+   - Set "amount": 0
 ` : ''}
 
 Extract the following information and output strictly in JSON format matching the schema below:
