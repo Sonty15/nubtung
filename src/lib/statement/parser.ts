@@ -151,6 +151,7 @@ function categorizeStatementRow(txDesc: string, rest: string, type: 'EXPENSE' | 
 
 /**
  * Reconciles and synchronizes statement PDFs from Google Drive with Google Sheets
+ * Handles overlapping months and deduplicates while preserving slips & manual entries.
  */
 export async function syncStatementsFromDrive() {
   const folderId = process.env.GOOGLE_DRIVE_STATEMENT_FOLDER_ID;
@@ -165,7 +166,7 @@ export async function syncStatementsFromDrive() {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
 
-  // 1. List PDF files in statement folder (exclude guide files like channel_bankuse)
+  // 1. List PDF files in statement folder
   const res = await drive.files.list({
     q: `'${folderId}' in parents and mimeType = 'application/pdf' and trashed = false`,
     fields: 'files(id, name)',
@@ -184,21 +185,39 @@ export async function syncStatementsFromDrive() {
   });
   const existingRows = sheetRes.data.values || [];
 
-  const existingSlipMap = new Map<string, { slipUrl: string; id: string; driveFileId: string }>();
-  for (const row of existingRows) {
+  // Track existing rows by unique key and by slip key
+  const existingSlipMap = new Map<string, {
+    row: any[];
+    slipUrl: string;
+    id: string;
+    driveFileId: string;
+    matched: boolean;
+  }>();
+
+  for (let idx = 0; idx < existingRows.length; idx++) {
+    const row = existingRows[idx];
     const rDate = row[0];
     const rAmount = parseFloat(String(row[3] || '0').replace(/[^\d.-]/g, ''));
     const rSlip = row[7];
-    const rId = row[8];
-    const rFileId = row[9];
+    const rId = row[8] || `tx_existing_${idx}`;
+    const rFileId = row[9] || '';
+
     if (rDate && !isNaN(rAmount)) {
       const key = `${rDate}_${rAmount.toFixed(2)}`;
-      existingSlipMap.set(key, { slipUrl: rSlip, id: rId, driveFileId: rFileId });
+      // If multiple slips have same date+amount, keep them keyed with index
+      existingSlipMap.set(`${key}_${idx}`, {
+        row,
+        slipUrl: rSlip,
+        id: rId,
+        driveFileId: rFileId,
+        matched: false,
+      });
     }
   }
 
-  // 3. Download & parse all statement files
-  const allTransactions: StatementTransaction[] = [];
+  // 3. Download & parse all statement files with cross-statement deduplication
+  const uniqueStatementMap = new Map<string, StatementTransaction>();
+
   for (const file of files) {
     const fileRes = await drive.files.get(
       { fileId: file.id!, alt: 'media' },
@@ -206,19 +225,49 @@ export async function syncStatementsFromDrive() {
     );
     const buffer = Buffer.from(fileRes.data as ArrayBuffer);
     const txs = parseStatementPdf(buffer, password);
-    allTransactions.push(...txs);
+
+    for (const tx of txs) {
+      // Unique statement fingerprint to eliminate overlapping months between statement files
+      const fingerprint = `${tx.date}_${tx.time}_${tx.amount.toFixed(2)}_${tx.type}_${tx.details.substring(0, 30)}`;
+      if (!uniqueStatementMap.has(fingerprint)) {
+        uniqueStatementMap.set(fingerprint, tx);
+      }
+    }
   }
 
-  // 4. Construct reconciled rows
+  const allStatementTxs = Array.from(uniqueStatementMap.values());
+
+  // 4. Reconcile Statement transactions with existing Slips & Data
   const finalRows: any[][] = [];
-  for (let i = 0; i < allTransactions.length; i++) {
-    const stm = allTransactions[i];
+  let matchedSlipCount = 0;
+  let newStatementRowsCount = 0;
+
+  for (let i = 0; i < allStatementTxs.length; i++) {
+    const stm = allStatementTxs[i];
     let typeLabel = '🔴 รายจ่าย';
     if (stm.type === 'INCOME') typeLabel = '🟢 รายรับ';
     else if (stm.type === 'TRANSFER') typeLabel = '🔄 โอนย้ายเงิน';
 
-    const key = `${stm.date}_${stm.amount.toFixed(2)}`;
-    const matchedSlip = existingSlipMap.get(key);
+    const baseKey = `${stm.date}_${stm.amount.toFixed(2)}`;
+
+    // Find any un-matched existing slip that matches this date and amount
+    let matchedEntryKey: string | null = null;
+    let matchedSlip: { row: any[]; slipUrl: string; id: string; driveFileId: string; matched: boolean } | null = null;
+
+    for (const [key, entry] of existingSlipMap.entries()) {
+      if (key.startsWith(baseKey) && !entry.matched) {
+        matchedEntryKey = key;
+        matchedSlip = entry;
+        break;
+      }
+    }
+
+    if (matchedSlip && matchedEntryKey) {
+      matchedSlip.matched = true;
+      matchedSlipCount++;
+    } else {
+      newStatementRowsCount++;
+    }
 
     const slipFormula = matchedSlip && matchedSlip.slipUrl && matchedSlip.slipUrl !== '-'
       ? matchedSlip.slipUrl
@@ -243,14 +292,24 @@ export async function syncStatementsFromDrive() {
     ]);
   }
 
-  // Sort descending by date & time
+  // 5. Preserve any unmatched existing rows (e.g. Cash expenses, manual entries, recent un-billed slips)
+  let preservedUnmatchedCount = 0;
+  for (const [, entry] of existingSlipMap.entries()) {
+    if (!entry.matched) {
+      // This is a manual entry or a recent slip that hasn't appeared in the statement yet
+      finalRows.push(entry.row);
+      preservedUnmatchedCount++;
+    }
+  }
+
+  // 6. Sort all rows descending by date and time
   finalRows.sort((a, b) => {
-    const dtA = `${a[0]} ${a[1]}`;
-    const dtB = `${b[0]} ${b[1]}`;
+    const dtA = `${a[0] || ''} ${a[1] || ''}`;
+    const dtB = `${b[0] || ''} ${b[1] || ''}`;
     return dtB.localeCompare(dtA);
   });
 
-  // Write back to Google Sheets
+  // 7. Update Google Sheets
   await sheets.spreadsheets.values.clear({
     spreadsheetId,
     range: `'📝 รายการทั้งหมด'!A2:K`,
@@ -267,8 +326,11 @@ export async function syncStatementsFromDrive() {
 
   return {
     success: true,
-    message: `ซิงค์และกระทบยอด Statement สำเร็จทั้งหมด ${finalRows.length} รายการ (จาก ${files.length} ไฟล์)`,
+    message: `ซิงค์และกระทบยอด Statement สำเร็จ: รวมทั้งหมด ${finalRows.length} รายการ (แมตช์สลิป ${matchedSlipCount}, รายการใหม่จาก Statement ${newStatementRowsCount}, รายการที่ยังไม่ถึงรอบบิล/เงินสด ${preservedUnmatchedCount})`,
     total: finalRows.length,
+    matchedSlips: matchedSlipCount,
+    newFromStatement: newStatementRowsCount,
+    preservedPending: preservedUnmatchedCount,
     filesCount: files.length,
   };
 }
