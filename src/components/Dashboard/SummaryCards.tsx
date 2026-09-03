@@ -5,16 +5,22 @@ import { DashboardSummary } from '@/types';
 
 interface SummaryCardsProps {
   summary: DashboardSummary | null;
+  overallSummary?: DashboardSummary | null;
   loading: boolean;
   kplusBalance?: number;
   makeBalance?: number;
+  accountBalances?: Record<string, number>;
+  totalCashInAccounts?: number;
 }
 
 export default function SummaryCards({
   summary,
+  overallSummary,
   loading,
-  kplusBalance = 43253.07,
-  makeBalance = 903.29,
+  kplusBalance,
+  makeBalance,
+  accountBalances,
+  totalCashInAccounts,
 }: SummaryCardsProps) {
   const cards = [
     {
@@ -59,7 +65,23 @@ export default function SummaryCards({
     },
   ];
 
-  const totalBankMoney = kplusBalance + makeBalance;
+  const resolvedAccountBalances =
+    accountBalances ||
+    overallSummary?.accountBalances ||
+    summary?.accountBalances || {
+      'K PLUS': kplusBalance ?? 43253.07,
+      'Make by KBank': makeBalance ?? 903.29,
+    };
+
+  const resolvedTotalCash =
+    totalCashInAccounts ??
+    overallSummary?.totalCashInAccounts ??
+    summary?.totalCashInAccounts ??
+    Object.values(resolvedAccountBalances).reduce((sum, val) => sum + val, 0);
+
+  const kplusBal = resolvedAccountBalances['K PLUS'] ?? 43253.07;
+  const makeBal = resolvedAccountBalances['Make by KBank'] ?? 903.29;
+  const paotangBal = resolvedAccountBalances['เป๋าตัง'] ?? 0;
 
   return (
     <div className="space-y-4">
@@ -74,21 +96,27 @@ export default function SummaryCards({
               ยอดเงินในบัญชีจริงทั้งหมด (Total Cash in Accounts)
             </span>
             <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              ฿{totalBankMoney.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ฿{resolvedTotalCash.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
-        {/* Breakdown by Bank */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        {/* Dynamic Breakdown by Bank / Account */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <div className="px-3.5 py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[10px] text-emerald-100 font-medium block">🔵 K PLUS (กสิกร)</span>
-            <span className="text-sm font-bold">฿{kplusBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            <span className="text-sm font-bold">฿{kplusBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
           </div>
           <div className="px-3.5 py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[10px] text-emerald-100 font-medium block">🟡 Make by KBank</span>
-            <span className="text-sm font-bold">฿{makeBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            <span className="text-sm font-bold">฿{makeBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
           </div>
+          {paotangBal !== 0 && (
+            <div className="px-3.5 py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+              <span className="text-[10px] text-emerald-100 font-medium block">📲 เป๋าตัง</span>
+              <span className="text-sm font-bold">฿{paotangBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -109,22 +137,16 @@ export default function SummaryCards({
               </div>
 
               <div>
-                {loading ? (
-                  <div className="h-8 w-28 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-lg" />
-                ) : (
-                  <div className="flex items-baseline justify-between">
-                    <span className={`text-2xl font-bold tracking-tight ${card.text}`}>
-                      {card.amount < 0 ? '-' : ''}฿
-                      {Math.abs(card.amount).toLocaleString('th-TH', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                )}
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-1 font-medium">
-                  {card.badge}
-                </span>
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className={`text-2xl font-extrabold tracking-tight ${card.text}`}>
+                    {loading ? (
+                      <span className="inline-block w-24 h-7 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-lg" />
+                    ) : (
+                      `฿${card.amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    )}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">{card.badge}</span>
               </div>
             </div>
           );

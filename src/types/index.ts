@@ -52,6 +52,8 @@ export interface DashboardSummary {
   accountBreakdown: Record<string, number>;
   categoryBreakdown: Record<string, number>;
   recentTransactions: Transaction[];
+  accountBalances?: Record<string, number>;
+  totalCashInAccounts?: number;
 }
 
 export interface UserSession {

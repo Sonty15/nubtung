@@ -237,9 +237,10 @@ export default function DashboardPage() {
         {/* 4 Summary Cards + Real Account Balances Header */}
         <SummaryCards
           summary={periodMetrics}
+          overallSummary={overallSummary}
           loading={loading}
-          kplusBalance={43253.07}
-          makeBalance={903.29}
+          accountBalances={overallSummary?.accountBalances}
+          totalCashInAccounts={overallSummary?.totalCashInAccounts}
         />
 
         {/* Visual Charts Grid: Trend Chart & Category Donut Chart */}

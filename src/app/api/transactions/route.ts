@@ -27,6 +27,34 @@ export async function GET() {
       }
     }
 
+    // Baseline balances as of latest reconciled statement (2026-09-02)
+    const dynamicAccountBalances: Record<string, number> = {
+      'K PLUS': 43253.07,
+      'Make by KBank': 903.29,
+      'เป๋าตัง': 0.00,
+      'เงินสด': 0.00,
+    };
+
+    // Calculate real-time dynamic balance updates from transactions dated >= 2026-09-03
+    for (const tx of transactions) {
+      if (tx.date >= '2026-09-03') {
+        const acc = tx.account || 'เงินสด';
+        if (dynamicAccountBalances[acc] === undefined) {
+          dynamicAccountBalances[acc] = 0;
+        }
+
+        if (tx.type === 'INCOME') {
+          dynamicAccountBalances[acc] += tx.amount;
+        } else if (tx.type === 'EXPENSE') {
+          dynamicAccountBalances[acc] -= tx.amount;
+        } else if (tx.type === 'TRANSFER') {
+          dynamicAccountBalances[acc] -= tx.amount;
+        }
+      }
+    }
+
+    const totalCashInAccounts = Object.values(dynamicAccountBalances).reduce((sum, b) => sum + b, 0);
+
     const summary: DashboardSummary = {
       totalIncome,
       totalExpense,
@@ -35,6 +63,8 @@ export async function GET() {
       accountBreakdown,
       categoryBreakdown,
       recentTransactions: transactions.slice(0, 10),
+      accountBalances: dynamicAccountBalances,
+      totalCashInAccounts,
     };
 
     return NextResponse.json({
