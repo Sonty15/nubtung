@@ -149,12 +149,14 @@ function categorizeStatementRow(txDesc: string, rest: string, type: 'EXPENSE' | 
   return 'อื่นๆ';
 }
 
+import { isStatementProcessed, markStatementProcessed } from '@/lib/db/sqlite';
+
 /**
  * Reconciles and synchronizes statement PDFs from Google Drive with Google Sheets
  * Separates K PLUS reconciliation from other accounts (Make by KBank, Cash),
  * strictly preserving all non-K PLUS rows!
  */
-export async function syncStatementsFromDrive() {
+export async function syncStatementsFromDrive(forceRefresh = false) {
   const folderId = process.env.GOOGLE_DRIVE_STATEMENT_FOLDER_ID;
   if (!folderId) {
     throw new Error('GOOGLE_DRIVE_STATEMENT_FOLDER_ID is not set');
@@ -170,13 +172,29 @@ export async function syncStatementsFromDrive() {
   // 1. List PDF files in statement folder
   const res = await drive.files.list({
     q: `'${folderId}' in parents and mimeType = 'application/pdf' and trashed = false`,
-    fields: 'files(id, name)',
+    fields: 'files(id, name, modifiedTime, md5Checksum)',
   });
 
   const files = (res.data.files || []).filter(f => f.name && f.name.startsWith('STM_'));
 
   if (files.length === 0) {
     return { success: true, message: 'ไม่พบไฟล์ e-Statement ใหม่ใน Google Drive', total: 0 };
+  }
+
+  // Check if all files have already been processed and unchanged (Instant skip)
+  if (!forceRefresh) {
+    const hasNewOrUpdatedFiles = files.some(
+      f => !isStatementProcessed(f.id!, f.modifiedTime || undefined)
+    );
+
+    if (!hasNewOrUpdatedFiles) {
+      return {
+        success: true,
+        message: 'ไม่มีไฟล์ Statement ใหม่ (ข้ามการประมวลผลซ้ำเพื่อความรวดเร็ว)',
+        skipped: true,
+        filesCount: files.length,
+      };
+    }
   }
 
   // 2. Fetch existing Google Sheet rows
@@ -334,6 +352,17 @@ export async function syncStatementsFromDrive() {
       values: allFinalRows,
     },
   });
+
+  // 8. Mark all statement files as processed in SQLite cache
+  for (const file of files) {
+    markStatementProcessed({
+      fileId: file.id!,
+      fileName: file.name || '',
+      modifiedTime: file.modifiedTime || new Date().toISOString(),
+      md5Checksum: file.md5Checksum || undefined,
+      transactionsCount: allFinalRows.length,
+    });
+  }
 
   return {
     success: true,

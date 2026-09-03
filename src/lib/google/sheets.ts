@@ -154,6 +154,51 @@ export async function appendTransactionRow(tx: Transaction) {
 }
 
 /**
+ * Appends multiple transaction rows in a single batch API call
+ */
+export async function appendTransactionRows(txs: Transaction[]) {
+  if (txs.length === 0) return;
+
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const rows = txs.map(tx => {
+    let typeLabel: string = tx.type;
+    if (tx.type === 'EXPENSE') typeLabel = '🔴 รายจ่าย';
+    else if (tx.type === 'INCOME') typeLabel = '🟢 รายรับ';
+    else if (tx.type === 'TRANSFER') typeLabel = '🔄 โอนย้ายเงิน';
+
+    const slipFormula = tx.slipUrl
+      ? `=HYPERLINK("${tx.slipUrl}", "🖼️ ดูสลิป")`
+      : '-';
+
+    return [
+      tx.date,
+      tx.time,
+      typeLabel,
+      tx.amount,
+      tx.category,
+      tx.account,
+      tx.note,
+      slipFormula,
+      tx.id,
+      tx.driveFileId || '',
+      tx.source,
+    ];
+  });
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `'${TRANSACTIONS_SHEET}'!A:K`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: {
+      values: rows,
+    },
+  });
+}
+
+/**
  * Reads all transaction rows from the Google Sheet
  */
 export async function getAllTransactions(): Promise<Transaction[]> {

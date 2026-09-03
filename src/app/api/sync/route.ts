@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
-import { appendTransactionRow, ensureSheetStructure } from '@/lib/google/sheets';
+import { appendTransactionRows, ensureSheetStructure } from '@/lib/google/sheets';
 import { isSlipProcessed, markSlipProcessed } from '@/lib/db/sqlite';
 import { SyncStats, Transaction } from '@/types';
 
@@ -33,11 +33,13 @@ export async function POST() {
       details: [],
     };
 
+    const newTransactionsToAppend: Transaction[] = [];
+
     for (const folder of foldersToScan) {
       const files = await listSlipsInFolder(folder.id);
 
       for (const file of files) {
-        // Skip already processed files
+        // Skip already processed files immediately from SQLite cache (Zero AI cost)
         if (isSlipProcessed(file.id)) {
           stats.skipped++;
           continue;
@@ -47,7 +49,7 @@ export async function POST() {
           // Download image
           const { base64, mimeType } = await downloadFileAsBase64(file.id);
 
-          // OCR with Gemini
+          // OCR with Gemini Flash-Lite
           const slipData = await analyzeSlipImage(base64, mimeType, folder.account);
 
           if (slipData.isSelfTransfer) {
@@ -72,10 +74,9 @@ export async function POST() {
             createdAt: new Date().toISOString(),
           };
 
-          // Append to Google Sheets
-          await appendTransactionRow(newTx);
+          newTransactionsToAppend.push(newTx);
 
-          // Mark in SQLite cache
+          // Mark in SQLite cache immediately
           markSlipProcessed({
             driveFileId: file.id,
             account: folder.account,
@@ -109,9 +110,14 @@ export async function POST() {
       }
     }
 
+    // 2. High-speed batch append all new transactions to Google Sheets in a single call
+    if (newTransactionsToAppend.length > 0) {
+      await appendTransactionRows(newTransactionsToAppend);
+    }
+
     return NextResponse.json({
       success: true,
-      message: `ซิงค์สำเร็จ: ประมวลผลใหม่ ${stats.processed} สลิป (เป็นรายการโอนระหว่างบัญชี ${stats.transfers} รายการ), ข้าม ${stats.skipped}, ล้มเหลว ${stats.failed}`,
+      message: `ซิงค์สลิปสำเร็จ: ประมวลผลใหม่ ${stats.processed} สลิป (โอนระหว่างบัญชี ${stats.transfers}), ข้ามสลิปเดิมที่เคยประมวลผลแล้ว ${stats.skipped}, ล้มเหลว ${stats.failed}`,
       stats,
     });
   } catch (error: any) {

@@ -41,6 +41,15 @@ function initSchema(db: Database.Database) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_processed_slips_status ON processed_slips(status);
+
+    CREATE TABLE IF NOT EXISTS processed_statements (
+      file_id TEXT PRIMARY KEY,
+      file_name TEXT NOT NULL,
+      modified_time TEXT NOT NULL,
+      md5_checksum TEXT,
+      transactions_count INTEGER DEFAULT 0,
+      processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 
@@ -73,6 +82,44 @@ export function markSlipProcessed(data: {
     data.amount ?? null,
     data.transactionDate ?? null,
     data.status
+  );
+}
+
+export function isStatementProcessed(fileId: string, modifiedTime?: string): boolean {
+  const db = getDb();
+  if (!modifiedTime) {
+    const row = db.prepare('SELECT file_id FROM processed_statements WHERE file_id = ?').get(fileId);
+    return Boolean(row);
+  }
+  const row = db.prepare('SELECT file_id FROM processed_statements WHERE file_id = ? AND modified_time = ?').get(fileId, modifiedTime);
+  return Boolean(row);
+}
+
+export function markStatementProcessed(data: {
+  fileId: string;
+  fileName: string;
+  modifiedTime: string;
+  md5Checksum?: string;
+  transactionsCount?: number;
+}) {
+  const db = getDb();
+  const stmt = db.prepare(`
+    INSERT INTO processed_statements (file_id, file_name, modified_time, md5_checksum, transactions_count)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(file_id) DO UPDATE SET
+      file_name = excluded.file_name,
+      modified_time = excluded.modified_time,
+      md5_checksum = excluded.md5_checksum,
+      transactions_count = excluded.transactions_count,
+      processed_at = CURRENT_TIMESTAMP
+  `);
+
+  stmt.run(
+    data.fileId,
+    data.fileName,
+    data.modifiedTime,
+    data.md5Checksum ?? null,
+    data.transactionsCount ?? 0
   );
 }
 
