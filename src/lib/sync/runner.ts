@@ -55,6 +55,19 @@ export async function executeFullSync() {
               const { base64, mimeType } = await downloadFileAsBase64(file.id);
               const slipData = await analyzeSlipImage(base64, mimeType, folder.account);
 
+              // Ignore non-slip images, QR generation screens, or zero-amount items
+              if (!slipData.amount || slipData.amount <= 0) {
+                console.log(`[Auto-Sync] Ignored non-slip / zero-amount image: ${file.name}`);
+                markSlipProcessed({
+                  driveFileId: file.id,
+                  account: folder.account,
+                  amount: 0,
+                  transactionDate: slipData.date,
+                  status: 'IGNORED_ZERO',
+                });
+                return;
+              }
+
               if (slipData.isSelfTransfer) {
                 transfersCount++;
               }

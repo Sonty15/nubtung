@@ -64,7 +64,7 @@ export function markSlipProcessed(data: {
   account: string;
   amount?: number;
   transactionDate?: string;
-  status: 'SUCCESS' | 'FAILED';
+  status: 'SUCCESS' | 'FAILED' | 'IGNORED_ZERO';
 }) {
   const db = getDb();
   const stmt = db.prepare(`
