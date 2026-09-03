@@ -123,16 +123,21 @@ Important Instructions:
   const sender = (parsed.senderName || '').toLowerCase();
   const receiver = (parsed.receiverName || '').toLowerCase();
   const note = (parsed.note || '').toLowerCase();
-  const pocket = (parsed.pocketName || '').toLowerCase();
+  const paotangAccountNo = (process.env.PAOTANG_ACCOUNT_NO || '9289').toLowerCase();
+  const ownAccountNames = (process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot,9289')
+    .toLowerCase()
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
 
-  const isUserSender = sender.includes('วรโชติ') || sender.includes('worachot');
-  const isUserReceiver = receiver.includes('วรโชติ') || receiver.includes('worachot') || (note.includes('วรโชติ') && !note.includes('ร้าน'));
+  const isUserSender = ownAccountNames.some(name => sender.includes(name));
+  const isUserReceiver = ownAccountNames.some(name => receiver.includes(name) || (note.includes(name) && !note.includes('ร้าน')));
 
   const receiverAcc = (parsed.receiverAccount || '').toLowerCase();
   const isPaotangWalletTransfer =
-    receiverAcc.includes('9289') ||
-    receiver.includes('9289') ||
-    note.includes('9289') ||
+    receiverAcc.includes(paotangAccountNo) ||
+    receiver.includes(paotangAccountNo) ||
+    note.includes(paotangAccountNo) ||
     receiver.includes('ktb g-wallet') ||
     receiver.includes('g-wallet') ||
     note.includes('ktb g-wallet') ||
