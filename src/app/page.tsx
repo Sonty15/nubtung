@@ -27,8 +27,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Period Selector State
-  const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTH');
+  // Period Selector State (Default: ALL)
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('ALL');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const fetchData = useCallback(async () => {
