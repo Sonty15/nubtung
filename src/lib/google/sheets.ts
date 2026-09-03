@@ -226,6 +226,13 @@ export async function getAllTransactions(): Promise<Transaction[]> {
     const rawAmount = String(r[3] || '0').replace(/[^\d.-]/g, '');
     const amount = parseFloat(rawAmount) || 0;
 
+    let slipUrl: string | undefined = undefined;
+    if (r[7] && String(r[7]).startsWith('http')) {
+      slipUrl = String(r[7]);
+    } else if (r[9] && String(r[9]).trim().length > 10) {
+      slipUrl = `https://drive.google.com/file/d/${String(r[9]).trim()}/view`;
+    }
+
     transactions.push({
       id: r[8] || `tx_${i + 1}`,
       date: r[0] || '',
@@ -235,7 +242,7 @@ export async function getAllTransactions(): Promise<Transaction[]> {
       category: r[4] || 'อื่นๆ',
       account: r[5] || 'ไม่ระบุ',
       note: r[6] || '',
-      slipUrl: r[7] ? String(r[7]).replace(/.*"(.*)".*/, '$1') : undefined,
+      slipUrl,
       driveFileId: r[9] || undefined,
       source: (r[10] as any) || 'MANUAL',
       createdAt: `${r[0]}T${r[1] || '00:00:00'}`,

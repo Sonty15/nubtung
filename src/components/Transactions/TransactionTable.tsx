@@ -149,19 +149,28 @@ export default function TransactionTable({ transactions, loading }: TransactionT
                     </td>
 
                     <td className="px-5 py-3 text-center whitespace-nowrap">
-                      {tx.slipUrl && tx.slipUrl !== '-' ? (
-                        <a
-                          href={tx.slipUrl.startsWith('http') ? tx.slipUrl : undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
-                        >
-                          <span>สลิป</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
-                      )}
+                      {(() => {
+                        const slipLink =
+                          tx.slipUrl && tx.slipUrl.startsWith('http')
+                            ? tx.slipUrl
+                            : tx.driveFileId && tx.driveFileId.length > 10
+                            ? `https://drive.google.com/file/d/${tx.driveFileId}/view`
+                            : null;
+
+                        return slipLink ? (
+                          <a
+                            href={slipLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline font-medium cursor-pointer"
+                          >
+                            <span>สลิป</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );
