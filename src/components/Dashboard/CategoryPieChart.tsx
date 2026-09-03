@@ -20,6 +20,41 @@ const COLORS = [
   '#64748b', // slate
 ];
 
+const CategoryTooltip = ({ active, payload, totalExpense }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const name = data.name;
+    const value = data.value;
+    const fill = payload[0].payload.fill || payload[0].color || '#10b981';
+    const percent = totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0';
+
+    return (
+      <div className="bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-md p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 text-xs space-y-1.5 min-w-[190px] text-white z-50">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-1.5">
+          <span
+            className="w-3 h-3 rounded-full shrink-0 shadow-xs"
+            style={{ backgroundColor: fill }}
+          />
+          <span className="font-bold text-slate-100 truncate text-[13px]">{name}</span>
+        </div>
+        <div className="flex justify-between items-center text-slate-300 pt-0.5">
+          <span>ยอดใช้จ่าย:</span>
+          <span className="font-bold text-emerald-400 text-sm">
+            ฿{Number(value).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
+        <div className="flex justify-between items-center text-slate-400 text-[11px]">
+          <span>สัดส่วน:</span>
+          <span className="font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-md">
+            {percent}% ของทั้งหมด
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function CategoryPieChart({
   categoryBreakdown,
   totalExpense,
@@ -34,7 +69,11 @@ export default function CategoryPieChart({
   }
 
   const entries = Object.entries(categoryBreakdown || {}).sort(([, a], [, b]) => b - a);
-  const data = entries.map(([name, value]) => ({ name, value }));
+  const data = entries.map(([name, value], index) => ({
+    name,
+    value,
+    fill: COLORS[index % COLORS.length],
+  }));
 
   if (data.length === 0 || totalExpense <= 0) {
     return (
@@ -71,23 +110,11 @@ export default function CategoryPieChart({
                 paddingAngle={3}
                 dataKey="value"
               >
-                {data.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
               </Pie>
-              <Tooltip
-                formatter={(value: any) => [
-                  `฿${Number(value).toLocaleString('th-TH', { minimumFractionDigits: 2 })}`,
-                  'ยอดใช้จ่าย',
-                ]}
-                contentStyle={{
-                  backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  color: '#fff',
-                  fontSize: '12px',
-                }}
-              />
+              <Tooltip content={<CategoryTooltip totalExpense={totalExpense} />} />
             </PieChart>
           </ResponsiveContainer>
 
