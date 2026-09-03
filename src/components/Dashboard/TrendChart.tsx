@@ -59,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function TrendChart({ data, loading }: TrendChartProps) {
-  const [chartType, setChartType] = useState<'BAR' | 'AREA'>('BAR');
+  const [chartType, setChartType] = useState<'BAR' | 'AREA'>('AREA');
 
   if (loading) {
     return (
