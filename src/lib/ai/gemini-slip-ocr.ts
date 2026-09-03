@@ -46,6 +46,12 @@ Special Rules for เป๋าตัง (Paotang / G-Wallet) slips:
    - Set "amount": 0
 ` : ''}
 
+Special Transfer Rules:
+- Transfers to Paotang / G-Wallet (ธ.กรุงไทย KTB 006, เลขบัญชี/Ref ลงท้าย 9289, หรือชื่อผู้รับ "KTB G-WALLET" / "G-Wallet"):
+  This is a self-transfer between the user's accounts.
+  - Set "suggestedCategory": "โอนระหว่างบัญชี"
+  - Set "note": "โอนเข้าเป๋าตัง (G-Wallet)"
+
 Extract the following information and output strictly in JSON format matching the schema below:
 
 JSON Schema:
@@ -122,11 +128,21 @@ Important Instructions:
   const isUserSender = sender.includes('วรโชติ') || sender.includes('worachot');
   const isUserReceiver = receiver.includes('วรโชติ') || receiver.includes('worachot') || (note.includes('วรโชติ') && !note.includes('ร้าน'));
 
-  // 1. Incoming Transfer: Someone else sends money to user -> INCOME
-  const isIncomingTransfer = isUserReceiver && !isUserSender && sender.length > 0;
+  const receiverAcc = (parsed.receiverAccount || '').toLowerCase();
+  const isPaotangWalletTransfer =
+    receiverAcc.includes('9289') ||
+    receiver.includes('9289') ||
+    note.includes('9289') ||
+    receiver.includes('ktb g-wallet') ||
+    receiver.includes('g-wallet') ||
+    note.includes('ktb g-wallet') ||
+    note.includes('โอนเข้าเป๋าตัง');
 
-  // 2. Self Transfer: User transfers money to himself -> TRANSFER
-  const isSelfTransfer = isUserSender && isUserReceiver;
+  // 1. Incoming Transfer: Someone else sends money to user -> INCOME
+  const isIncomingTransfer = isUserReceiver && !isUserSender && sender.length > 0 && !isPaotangWalletTransfer;
+
+  // 2. Self Transfer: User transfers money to himself or to own Paotang G-Wallet -> TRANSFER
+  const isSelfTransfer = (isUserSender && isUserReceiver) || isPaotangWalletTransfer;
 
   // Resolve category by Color Theme for Make by KBank
   let category = parsed.suggestedCategory || 'อื่นๆ';
