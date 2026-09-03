@@ -5,6 +5,12 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'นับตังค์ - Nubtang | จัดการรายรับ-รายจ่าย & บันทึกสลิปอัตโนมัติ',
   description: 'ระบบบันทึกรายรับ-รายจ่าย เชื่อมต่อ Google Sheets และซิงค์สลิปจาก Google Drive อัตโนมัติด้วย AI',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({
