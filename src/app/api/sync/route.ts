@@ -5,6 +5,15 @@ import { appendTransactionRows, ensureSheetStructure } from '@/lib/google/sheets
 import { isSlipProcessed, markSlipProcessed } from '@/lib/db/sqlite';
 import { SyncStats, Transaction } from '@/types';
 
+// Chunk helper for high-speed parallel processing
+function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+  const results: T[][] = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    results.push(array.slice(i, i + chunkSize));
+  }
+  return results;
+}
+
 export async function POST() {
   try {
     // 1. Ensure sheet tabs & headers exist
@@ -15,14 +24,15 @@ export async function POST() {
 
     if (!kplusFolderId && !makeFolderId) {
       return NextResponse.json(
-        { error: 'Neither GOOGLE_DRIVE_KPLUS_FOLDER_ID nor GOOGLE_DRIVE_MAKE_FOLDER_ID is configured in environment variables' },
+        { error: 'Neither GOOGLE_DRIVE_KPLUS_FOLDER_ID nor GOOGLE_DRIVE_MAKE_FOLDER_ID is configured' },
         { status: 400 }
       );
     }
 
+    // Prioritize Make by KBank first
     const foldersToScan = [
-      { id: kplusFolderId, account: 'K PLUS' },
       { id: makeFolderId, account: 'Make by KBank' },
+      { id: kplusFolderId, account: 'K PLUS' },
     ].filter((f): f is { id: string; account: string } => Boolean(f.id));
 
     const stats: SyncStats = {
@@ -33,97 +43,95 @@ export async function POST() {
       details: [],
     };
 
-    const newTransactionsToAppend: Transaction[] = [];
+    const CONCURRENCY = 6; // Process 6 slips in parallel
 
     for (const folder of foldersToScan) {
+      console.log(`[Sync] Scanning folder: ${folder.account}...`);
       const files = await listSlipsInFolder(folder.id);
 
-      for (const file of files) {
-        // Skip already processed files immediately from SQLite cache (Zero AI cost)
-        if (isSlipProcessed(file.id)) {
-          stats.skipped++;
-          continue;
-        }
+      const unprocessedFiles = files.filter(f => !isSlipProcessed(f.id));
+      stats.skipped += (files.length - unprocessedFiles.length);
 
-        try {
-          // Download image
-          const { base64, mimeType } = await downloadFileAsBase64(file.id);
+      console.log(`[Sync] ${folder.account}: ${files.length} total, ${unprocessedFiles.length} new to process`);
 
-          // OCR with Gemini Flash-Lite
-          const slipData = await analyzeSlipImage(base64, mimeType, folder.account);
+      const fileChunks = chunkArray(unprocessedFiles, CONCURRENCY);
 
-          if (slipData.isSelfTransfer) {
-            stats.transfers++;
-          }
+      for (const chunk of fileChunks) {
+        const chunkTransactions: Transaction[] = [];
 
-          const txId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-          const slipLink = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
+        await Promise.all(
+          chunk.map(async (file) => {
+            try {
+              const { base64, mimeType } = await downloadFileAsBase64(file.id);
+              const slipData = await analyzeSlipImage(base64, mimeType, folder.account);
 
-          const newTx: Transaction = {
-            id: txId,
-            date: slipData.date,
-            time: slipData.time,
-            type: slipData.type,
-            amount: slipData.amount,
-            category: slipData.category,
-            account: folder.account,
-            note: slipData.note,
-            slipUrl: slipLink,
-            driveFileId: file.id,
-            source: 'AUTO_SYNC',
-            createdAt: new Date().toISOString(),
-          };
+              if (slipData.isSelfTransfer) {
+                stats.transfers++;
+              }
 
-          newTransactionsToAppend.push(newTx);
+              const txId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+              const slipLink = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
 
-          // Mark in SQLite cache immediately
-          markSlipProcessed({
-            driveFileId: file.id,
-            account: folder.account,
-            amount: slipData.amount,
-            transactionDate: slipData.date,
-            status: 'SUCCESS',
-          });
+              const newTx: Transaction = {
+                id: txId,
+                date: slipData.date,
+                time: slipData.time,
+                type: slipData.type,
+                amount: slipData.amount,
+                category: slipData.category,
+                account: folder.account,
+                note: slipData.note,
+                slipUrl: slipLink,
+                driveFileId: file.id,
+                source: 'AUTO_SYNC',
+                createdAt: new Date().toISOString(),
+              };
 
-          stats.processed++;
-          stats.details.push({
-            fileName: file.name,
-            account: folder.account,
-            amount: slipData.amount,
-            status: 'SUCCESS',
-          });
-        } catch (err: any) {
-          stats.failed++;
-          stats.details.push({
-            fileName: file.name,
-            account: folder.account,
-            status: 'FAILED',
-            error: err.message || 'Unknown error processing slip',
-          });
+              chunkTransactions.push(newTx);
 
-          markSlipProcessed({
-            driveFileId: file.id,
-            account: folder.account,
-            status: 'FAILED',
-          });
+              markSlipProcessed({
+                driveFileId: file.id,
+                account: folder.account,
+                amount: slipData.amount,
+                transactionDate: slipData.date,
+                status: 'SUCCESS',
+              });
+
+              stats.processed++;
+              stats.details.push({
+                fileName: file.name,
+                account: folder.account,
+                amount: slipData.amount,
+                status: 'SUCCESS',
+              });
+            } catch (err: any) {
+              stats.failed++;
+              console.error(`[Sync] Error on ${file.name}:`, err.message);
+              markSlipProcessed({
+                driveFileId: file.id,
+                account: folder.account,
+                status: 'FAILED',
+              });
+            }
+          })
+        );
+
+        // Save batch to Google Sheets periodically
+        if (chunkTransactions.length > 0) {
+          await appendTransactionRows(chunkTransactions);
         }
       }
     }
 
-    // 2. High-speed batch append all new transactions to Google Sheets in a single call
-    if (newTransactionsToAppend.length > 0) {
-      await appendTransactionRows(newTransactionsToAppend);
-    }
-
     return NextResponse.json({
       success: true,
-      message: `ซิงค์สลิปสำเร็จ: ประมวลผลใหม่ ${stats.processed} สลิป (โอนระหว่างบัญชี ${stats.transfers}), ข้ามสลิปเดิมที่เคยประมวลผลแล้ว ${stats.skipped}, ล้มเหลว ${stats.failed}`,
+      message: `ซิงค์สลิปสำเร็จ: ประมวลผลใหม่ ${stats.processed} สลิป (โอนระหว่างบัญชี ${stats.transfers}), ข้าม ${stats.skipped}, ล้มเหลว ${stats.failed}`,
       stats,
     });
   } catch (error: any) {
     console.error('Error during sync:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to sync slips from Google Drive' },
+      { error: error.message || 'Failed to sync slips' },
       { status: 500 }
     );
   }
