@@ -72,46 +72,46 @@ export default function ManualTransactionModal({ onSuccess }: ManualTransactionM
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white shadow-xs transition-colors"
+        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all active:scale-95"
       >
         <Plus className="w-4 h-4" />
         <span>บันทึกรายการเอง</span>
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors">
             <button
               onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 rounded-lg"
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h2 className="text-lg font-bold text-gray-900 mb-4">บันทึกรายการใหม่</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">บันทึกรายการใหม่</h2>
 
             {error && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+              <div className="mb-4 p-3 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 text-xs border border-red-200 dark:border-red-800">
                 {error}
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4 text-sm">
               {/* Type Switcher */}
-              <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-xl">
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/70 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
                 {(['EXPENSE', 'INCOME', 'TRANSFER'] as TransactionType[]).map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setType(t)}
-                    className={`py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    className={`py-2 text-xs font-bold rounded-xl transition-all ${
                       type === t
                         ? t === 'EXPENSE'
-                          ? 'bg-rose-500 text-white shadow-xs'
+                          ? 'bg-rose-500 text-white shadow-sm'
                           : t === 'INCOME'
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-amber-500 text-white shadow-xs'
-                        : 'text-gray-600 hover:text-gray-900'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-amber-500 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     {t === 'EXPENSE' ? '🔴 รายจ่าย' : t === 'INCOME' ? '🟢 รายรับ' : '🔄 โอนย้าย'}
@@ -121,7 +121,9 @@ export default function ManualTransactionModal({ onSuccess }: ManualTransactionM
 
               {/* Amount */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">จำนวนเงิน (บาท)</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  จำนวนเงิน (บาท)
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -129,21 +131,23 @@ export default function ManualTransactionModal({ onSuccess }: ManualTransactionM
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full text-lg font-bold px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-lg font-bold px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder-slate-400 dark:placeholder-slate-500"
                 />
               </div>
 
               {/* Category & Account */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">หมวดหมู่</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    หมวดหมู่
+                  </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   >
                     {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
+                      <option key={cat} value={cat} className="dark:bg-slate-900 dark:text-white">
                         {cat}
                       </option>
                     ))}
@@ -151,55 +155,62 @@ export default function ManualTransactionModal({ onSuccess }: ManualTransactionM
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">บัญชี</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    บัญชี
+                  </label>
                   <select
                     value={account}
                     onChange={(e) => setAccount(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   >
-                    <option value="K PLUS">K PLUS</option>
-                    <option value="Make by KBank">Make by KBank</option>
-                    <option value="เงินสด">เงินสด</option>
-                    <option value="อื่นๆ">อื่นๆ</option>
+                    <option value="K PLUS" className="dark:bg-slate-900 dark:text-white">🔵 K PLUS</option>
+                    <option value="Make by KBank" className="dark:bg-slate-900 dark:text-white">🟡 Make by KBank</option>
+                    <option value="เป๋าตัง" className="dark:bg-slate-900 dark:text-white">📲 เป๋าตัง (Paotang)</option>
+                    <option value="เงินสด" className="dark:bg-slate-900 dark:text-white">💵 เงินสด</option>
+                    <option value="อื่นๆ" className="dark:bg-slate-900 dark:text-white">อื่นๆ</option>
                   </select>
                 </div>
               </div>
 
               {/* Date */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">วันที่</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  วันที่
+                </label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 
               {/* Note */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">รายละเอียด / หมายเหตุ</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  รายละเอียด / หมายเหตุ
+                </label>
                 <input
                   type="text"
                   placeholder="เช่น ข้าวกลางวัน, ค่ากาแฟ"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder-slate-400 dark:placeholder-slate-500"
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-3 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                  className="px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-2xl shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
                 >
                   {loading ? 'กำลังบันทึก...' : 'บันทึกลง Google Sheet'}
                 </button>
