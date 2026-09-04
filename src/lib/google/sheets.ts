@@ -297,29 +297,35 @@ export async function getAllTransactions(): Promise<Transaction[]> {
 
 /**
  * Deletes a transaction row from Google Sheets by transaction ID
+ * (Defaults to allowing deletion only for MANUAL transactions)
  */
-export async function deleteTransactionRow(txId: string): Promise<boolean> {
+export async function deleteTransactionRow(txId: string, onlyManual: boolean = true): Promise<{ success: boolean; error?: string }> {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
 
   const metadata = await sheets.spreadsheets.get({ spreadsheetId });
   const txSheet = metadata.data.sheets?.find(s => s.properties?.title === TRANSACTIONS_SHEET);
-  if (!txSheet || txSheet.properties?.sheetId === undefined) return false;
+  if (!txSheet || txSheet.properties?.sheetId === undefined) return { success: false, error: 'Sheet not found' };
   const sheetId = txSheet.properties.sheetId;
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${TRANSACTIONS_SHEET}'!I2:I`,
+    range: `'${TRANSACTIONS_SHEET}'!I2:K`,
   });
 
   const rows = res.data.values || [];
   const rowIndex = rows.findIndex(r => (r[0] || '').trim() === txId.trim());
 
   if (rowIndex === -1) {
-    return false;
+    return { success: false, error: 'ไม่พบรายการที่ต้องการลบใน Google Sheets' };
   }
 
-  // Row 2 in sheets corresponds to startRowIndex: 1 (0-indexed)
+  const source = (rows[rowIndex][2] || '').trim();
+  if (onlyManual && source !== 'MANUAL') {
+    return { success: false, error: 'สามารถลบได้เฉพาะรายการที่บันทึกด้วยตนเองเท่านั้น' };
+  }
+
+  // Row 2 in sheets corresponds to startRowIndex: rowIndex + 1 (0-indexed)
   const actualRowIndex = rowIndex + 1;
 
   await sheets.spreadsheets.batchUpdate({
@@ -337,6 +343,40 @@ export async function deleteTransactionRow(txId: string): Promise<boolean> {
           },
         },
       ],
+    },
+  });
+
+  return { success: true };
+}
+
+/**
+ * Updates note / comment description on any transaction row in Google Sheets
+ */
+export async function updateTransactionNote(txId: string, note: string): Promise<boolean> {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${TRANSACTIONS_SHEET}'!I2:I`,
+  });
+
+  const rows = res.data.values || [];
+  const rowIndex = rows.findIndex(r => (r[0] || '').trim() === txId.trim());
+
+  if (rowIndex === -1) {
+    return false;
+  }
+
+  // Row 2 in sheets corresponds to sheet row number: rowIndex + 2
+  const sheetRowNum = rowIndex + 2;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `'${TRANSACTIONS_SHEET}'!G${sheetRowNum}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [[note]],
     },
   });
 

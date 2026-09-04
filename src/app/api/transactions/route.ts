@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllTransactions, appendTransactionRow, deleteTransactionRow, ensureSheetStructure } from '@/lib/google/sheets';
+import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, ensureSheetStructure } from '@/lib/google/sheets';
 import { Transaction, DashboardSummary } from '@/types';
 
 export async function GET() {
@@ -148,9 +148,9 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'กรุณาระบุรหัสรายการ (ID) ที่ต้องการลบ' }, { status: 400 });
     }
 
-    const deleted = await deleteTransactionRow(id);
-    if (!deleted) {
-      return NextResponse.json({ error: 'ไม่พบรายการที่ต้องการลบใน Google Sheets' }, { status: 404 });
+    const result = await deleteTransactionRow(id, true);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || 'ไม่สามารถลบรายการนี้ได้' }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, message: 'ลบรายการสำเร็จ' });
@@ -158,6 +158,30 @@ export async function DELETE(req: Request) {
     console.error('Error deleting transaction:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to delete transaction' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, note } = body;
+
+    if (!id || typeof note !== 'string') {
+      return NextResponse.json({ error: 'กรุณาระบุรหัสรายการ (ID) และข้อความที่ต้องการบันทึก' }, { status: 400 });
+    }
+
+    const updated = await updateTransactionNote(id, note);
+    if (!updated) {
+      return NextResponse.json({ error: 'ไม่พบรายการที่ต้องการแก้ไขใน Google Sheets' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'บันทึกรายละเอียดเพิ่มเติมสำเร็จ' });
+  } catch (error: any) {
+    console.error('Error updating transaction note:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to update transaction note' },
       { status: 500 }
     );
   }
