@@ -4,7 +4,6 @@ import { Transaction, DashboardSummary } from '@/types';
 
 export async function GET() {
   try {
-    await ensureSheetStructure();
     const transactions = await getAllTransactions();
 
     let totalIncome = 0;
