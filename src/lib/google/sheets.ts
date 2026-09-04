@@ -382,3 +382,75 @@ export async function updateTransactionNote(txId: string, note: string): Promise
 
   return true;
 }
+
+/**
+ * Updates an entire manual transaction row in Google Sheets
+ */
+export async function updateManualTransaction(tx: {
+  id: string;
+  type?: TransactionType;
+  amount?: number;
+  category?: string;
+  account?: string;
+  note?: string;
+  date?: string;
+  time?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${TRANSACTIONS_SHEET}'!A2:K`,
+  });
+
+  const rows = res.data.values || [];
+  const rowIndex = rows.findIndex(r => (r[8] || '').trim() === tx.id.trim());
+
+  if (rowIndex === -1) {
+    return { success: false, error: 'ไม่พบรายการที่ต้องการแก้ไขใน Google Sheets' };
+  }
+
+  const existingRow = rows[rowIndex];
+  const source = (existingRow[10] || '').trim();
+
+  // If not manual and updating more than note, prevent full overwrite
+  if (source !== 'MANUAL' && (tx.amount !== undefined || tx.type !== undefined || tx.account !== undefined)) {
+    return { success: false, error: 'รายการที่ซิงค์อัตโนมัติสามารถแก้ไขได้เฉพาะรายละเอียด/หมายเหตุเท่านั้น' };
+  }
+
+  let typeLabel: string = existingRow[2] || '🔴 รายจ่าย';
+  if (tx.type) {
+    if (tx.type === 'EXPENSE') typeLabel = '🔴 รายจ่าย';
+    else if (tx.type === 'INCOME') typeLabel = '🟢 รายรับ';
+    else if (tx.type === 'TRANSFER') typeLabel = '🔄 โอนย้ายเงิน';
+  }
+
+  const updatedDate = tx.date ?? existingRow[0];
+  const updatedTime = tx.time ?? existingRow[1];
+  const updatedAmount = tx.amount !== undefined ? tx.amount : existingRow[3];
+  const updatedCategory = tx.category ?? existingRow[4];
+  const updatedAccount = tx.account ?? existingRow[5];
+  const updatedNote = tx.note !== undefined ? tx.note : existingRow[6];
+
+  const sheetRowNum = rowIndex + 2;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `'${TRANSACTIONS_SHEET}'!A${sheetRowNum}:G${sheetRowNum}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [[
+        updatedDate,
+        updatedTime,
+        typeLabel,
+        updatedAmount,
+        updatedCategory,
+        updatedAccount,
+        updatedNote,
+      ]],
+    },
+  });
+
+  return { success: true };
+}

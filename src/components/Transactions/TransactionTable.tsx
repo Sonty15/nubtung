@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Transaction } from '@/types';
-import { ExternalLink, Search, Filter, Trash2, Edit3, MessageSquarePlus, X, Check } from 'lucide-react';
+import { Transaction, TransactionType } from '@/types';
+import { ExternalLink, Search, Filter, Trash2, Edit3, MessageSquarePlus, X, Check, Save } from 'lucide-react';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -10,16 +10,40 @@ interface TransactionTableProps {
   onRefresh?: () => void;
 }
 
+const CATEGORIES = [
+  'อาหารและเครื่องดื่ม',
+  'ของใช้ในบ้าน/ซูเปอร์',
+  'การเดินทาง/ค่าน้ำมัน',
+  'ช้อปปิ้ง',
+  'สาธารณูปโภค (น้ำ/ไฟ/เน็ต)',
+  'บันเทิง/สตรีมมิ่ง',
+  'สุขภาพ/ยา',
+  'โอนระหว่างบัญชี',
+  'เงินเดือน/รายรับ',
+  'อื่นๆ',
+];
+
 export default function TransactionTable({ transactions, loading, onRefresh }: TransactionTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedAccount, setSelectedAccount] = useState<string>('ALL');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Edit Note / Comment Modal State
-  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  // Quick Note Edit Modal (for Auto-sync transactions)
+  const [editingNoteTx, setEditingNoteTx] = useState<Transaction | null>(null);
   const [editNoteText, setEditNoteText] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
+
+  // Full Edit Modal (for Manual transactions)
+  const [editingManualTx, setEditingManualTx] = useState<Transaction | null>(null);
+  const [manualType, setManualType] = useState<TransactionType>('EXPENSE');
+  const [manualAmount, setManualAmount] = useState('');
+  const [manualCategory, setManualCategory] = useState(CATEGORIES[0]);
+  const [manualAccount, setManualAccount] = useState('K PLUS');
+  const [manualDate, setManualDate] = useState('');
+  const [manualTime, setManualTime] = useState('');
+  const [manualNote, setManualNote] = useState('');
+  const [isSavingManual, setIsSavingManual] = useState(false);
 
   const filtered = transactions.filter((tx) => {
     const matchSearch =
@@ -55,14 +79,25 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
     }
   };
 
-  const handleOpenEditNote = (tx: Transaction) => {
-    setEditingTx(tx);
-    setEditNoteText(tx.note || '');
+  const handleOpenEdit = (tx: Transaction) => {
+    if (tx.source === 'MANUAL') {
+      setEditingManualTx(tx);
+      setManualType(tx.type);
+      setManualAmount(tx.amount.toString());
+      setManualCategory(tx.category || CATEGORIES[0]);
+      setManualAccount(tx.account || 'K PLUS');
+      setManualDate(tx.date);
+      setManualTime(tx.time || '');
+      setManualNote(tx.note || '');
+    } else {
+      setEditingNoteTx(tx);
+      setEditNoteText(tx.note || '');
+    }
   };
 
   const handleSaveNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTx) return;
+    if (!editingNoteTx) return;
 
     setIsSavingNote(true);
     try {
@@ -70,7 +105,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: editingTx.id,
+          id: editingNoteTx.id,
           note: editNoteText,
         }),
       });
@@ -80,14 +115,62 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         throw new Error(data.error || 'Failed to update note');
       }
 
-      // Update in-memory state
-      editingTx.note = editNoteText;
-      setEditingTx(null);
+      editingNoteTx.note = editNoteText;
+      setEditingNoteTx(null);
       if (onRefresh) onRefresh();
     } catch (err: any) {
       alert(`บันทึกรายละเอียดไม่สำเร็จ: ${err.message}`);
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  const handleSaveManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingManualTx) return;
+
+    setIsSavingManual(true);
+    try {
+      const parsedAmount = parseFloat(manualAmount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        throw new Error('กรุณากรอกจำนวนเงินให้ถูกต้อง');
+      }
+
+      const res = await fetch('/api/transactions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingManualTx.id,
+          type: manualType,
+          amount: parsedAmount,
+          category: manualCategory,
+          account: manualAccount,
+          date: manualDate,
+          time: manualTime,
+          note: manualNote,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update transaction');
+      }
+
+      // Update in-memory
+      editingManualTx.type = manualType;
+      editingManualTx.amount = parsedAmount;
+      editingManualTx.category = manualCategory;
+      editingManualTx.account = manualAccount;
+      editingManualTx.date = manualDate;
+      editingManualTx.time = manualTime;
+      editingManualTx.note = manualNote;
+
+      setEditingManualTx(null);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      alert(`แก้ไขรายการไม่สำเร็จ: ${err.message}`);
+    } finally {
+      setIsSavingManual(false);
     }
   };
 
@@ -146,7 +229,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                 <th className="px-5 py-3.5">รายละเอียด / หมายเหตุ</th>
                 <th className="px-5 py-3.5 text-right">จำนวนเงิน</th>
                 <th className="px-5 py-3.5 text-center">สลิป</th>
-                <th className="px-3 py-3.5 text-center w-14">จัดการ</th>
+                <th className="px-3 py-3.5 text-center w-20">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
@@ -206,8 +289,8 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                             {tx.note || <span className="text-slate-400 italic">ไม่มีรายละเอียด</span>}
                           </span>
                           <button
-                            onClick={() => handleOpenEditNote(tx)}
-                            title="เพิ่ม / แก้ไขรายละเอียดเพิ่มเติม"
+                            onClick={() => handleOpenEdit(tx)}
+                            title={isManual ? 'แก้ไขรายการทั้งหมด' : 'เพิ่ม / แก้ไขรายละเอียดเพิ่มเติม'}
                             className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors shrink-0 opacity-40 group-hover:opacity-100"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -256,18 +339,26 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                       </td>
 
                       <td className="px-3 py-3 text-center whitespace-nowrap">
-                        {isManual ? (
+                        <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() => handleDelete(tx)}
-                            disabled={isDeleting}
-                            title="ลบรายการที่บันทึกเอง"
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all disabled:opacity-30"
+                            onClick={() => handleOpenEdit(tx)}
+                            title={isManual ? 'แก้ไขรายการนี้' : 'เพิ่มรายละเอียดเพิ่มเติม'}
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
                           >
-                            <Trash2 className={`w-3.5 h-3.5 ${isDeleting ? 'animate-spin text-rose-500' : ''}`} />
+                            <Edit3 className="w-3.5 h-3.5" />
                           </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 dark:text-slate-600 select-none">Auto</span>
-                        )}
+
+                          {isManual ? (
+                            <button
+                              onClick={() => handleDelete(tx)}
+                              disabled={isDeleting}
+                              title="ลบรายการที่บันทึกเอง"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all disabled:opacity-30"
+                            >
+                              <Trash2 className={`w-3.5 h-3.5 ${isDeleting ? 'animate-spin text-rose-500' : ''}`} />
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -283,12 +374,172 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         </div>
       </div>
 
-      {/* Edit Note / Comment Modal */}
-      {editingTx && (
+      {/* Full Edit Modal for MANUAL Transactions */}
+      {editingManualTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors">
+            <button
+              onClick={() => setEditingManualTx(null)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Edit3 className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">แก้ไขรายการที่บันทึกเอง</h2>
+                <span className="text-[11px] text-slate-400">แก้ไขข้อมูลได้ครบทุกช่อง และอัปเดตลง Google Sheet</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveManual} className="space-y-4 text-sm">
+              {/* Type Switcher */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/70 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                {(['EXPENSE', 'INCOME', 'TRANSFER'] as TransactionType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setManualType(t)}
+                    className={`py-2 text-xs font-bold rounded-xl transition-all ${
+                      manualType === t
+                        ? t === 'EXPENSE'
+                          ? 'bg-rose-500 text-white shadow-sm'
+                          : t === 'INCOME'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-amber-500 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {t === 'EXPENSE' ? '🔴 รายจ่าย' : t === 'INCOME' ? '🟢 รายรับ' : '🔄 โอนย้าย'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  จำนวนเงิน (บาท)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="0.00"
+                  value={manualAmount}
+                  onChange={(e) => setManualAmount(e.target.value)}
+                  className="w-full text-lg font-bold px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder-slate-400 dark:placeholder-slate-500"
+                />
+              </div>
+
+              {/* Category & Account */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    หมวดหมู่
+                  </label>
+                  <select
+                    value={manualCategory}
+                    onChange={(e) => setManualCategory(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat} className="dark:bg-slate-900 dark:text-white">
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    บัญชี
+                  </label>
+                  <select
+                    value={manualAccount}
+                    onChange={(e) => setManualAccount(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    <option value="K PLUS" className="dark:bg-slate-900 dark:text-white">🔵 K PLUS</option>
+                    <option value="Make by KBank" className="dark:bg-slate-900 dark:text-white">🟡 Make by KBank</option>
+                    <option value="เป๋าตัง" className="dark:bg-slate-900 dark:text-white">📲 เป๋าตัง (Paotang)</option>
+                    <option value="เงินสด" className="dark:bg-slate-900 dark:text-white">💵 เงินสด</option>
+                    <option value="อื่นๆ" className="dark:bg-slate-900 dark:text-white">อื่นๆ</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Date & Time */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    วันที่
+                  </label>
+                  <input
+                    type="date"
+                    value={manualDate}
+                    onChange={(e) => setManualDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    เวลา
+                  </label>
+                  <input
+                    type="time"
+                    step="1"
+                    value={manualTime}
+                    onChange={(e) => setManualTime(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  รายละเอียด / หมายเหตุ
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="เช่น ข้าวกลางวัน, ค่ากาแฟ, รายการสิ่งของที่ซื้อ"
+                  value={manualNote}
+                  onChange={(e) => setManualNote(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder-slate-400 dark:placeholder-slate-500 leading-relaxed"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingManualTx(null)}
+                  className="px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingManual}
+                  className="flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-2xl shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSavingManual ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Edit Note / Comment Modal for AUTO_SYNC Transactions */}
+      {editingNoteTx && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors">
             <button
-              onClick={() => setEditingTx(null)}
+              onClick={() => setEditingNoteTx(null)}
               className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
               <X className="w-5 h-5" />
@@ -301,7 +552,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">เพิ่ม/แก้ไขรายละเอียดเพิ่มเติม</h2>
                 <span className="text-[11px] text-slate-400">
-                  {editingTx.date} {editingTx.time} | ฿{editingTx.amount.toLocaleString()} ({editingTx.category})
+                  {editingNoteTx.date} {editingNoteTx.time} | ฿{editingNoteTx.amount.toLocaleString()} ({editingNoteTx.category})
                 </span>
               </div>
             </div>
@@ -324,7 +575,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               <div className="flex items-center justify-end gap-2.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => setEditingTx(null)}
+                  onClick={() => setEditingNoteTx(null)}
                   className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors"
                 >
                   ยกเลิก

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, ensureSheetStructure } from '@/lib/google/sheets';
+import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction, ensureSheetStructure } from '@/lib/google/sheets';
 import { Transaction, DashboardSummary } from '@/types';
 
 export async function GET() {
@@ -166,10 +166,35 @@ export async function DELETE(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { id, note } = body;
+    const { id, type, amount, category, account, note, date, time } = body;
 
-    if (!id || typeof note !== 'string') {
-      return NextResponse.json({ error: 'กรุณาระบุรหัสรายการ (ID) และข้อความที่ต้องการบันทึก' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'กรุณาระบุรหัสรายการ (ID)' }, { status: 400 });
+    }
+
+    // If full transaction fields are provided, update the manual transaction
+    if (amount !== undefined || type !== undefined || category !== undefined || account !== undefined || date !== undefined) {
+      const result = await updateManualTransaction({
+        id,
+        type,
+        amount: amount !== undefined ? parseFloat(amount) : undefined,
+        category,
+        account,
+        note,
+        date,
+        time,
+      });
+
+      if (!result.success) {
+        return NextResponse.json({ error: result.error || 'ไม่สามารถแก้ไขรายการนี้ได้' }, { status: 400 });
+      }
+
+      return NextResponse.json({ success: true, message: 'แก้ไขรายการสำเร็จ' });
+    }
+
+    // Otherwise, update just the note / comment
+    if (typeof note !== 'string') {
+      return NextResponse.json({ error: 'กรุณาระบุข้อความที่ต้องการบันทึก' }, { status: 400 });
     }
 
     const updated = await updateTransactionNote(id, note);
@@ -179,9 +204,9 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ success: true, message: 'บันทึกรายละเอียดเพิ่มเติมสำเร็จ' });
   } catch (error: any) {
-    console.error('Error updating transaction note:', error);
+    console.error('Error updating transaction:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to update transaction note' },
+      { error: error.message || 'Failed to update transaction' },
       { status: 500 }
     );
   }
