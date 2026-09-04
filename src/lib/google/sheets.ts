@@ -294,3 +294,51 @@ export async function getAllTransactions(): Promise<Transaction[]> {
 
   return transactions;
 }
+
+/**
+ * Deletes a transaction row from Google Sheets by transaction ID
+ */
+export async function deleteTransactionRow(txId: string): Promise<boolean> {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const metadata = await sheets.spreadsheets.get({ spreadsheetId });
+  const txSheet = metadata.data.sheets?.find(s => s.properties?.title === TRANSACTIONS_SHEET);
+  if (!txSheet || txSheet.properties?.sheetId === undefined) return false;
+  const sheetId = txSheet.properties.sheetId;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${TRANSACTIONS_SHEET}'!I2:I`,
+  });
+
+  const rows = res.data.values || [];
+  const rowIndex = rows.findIndex(r => (r[0] || '').trim() === txId.trim());
+
+  if (rowIndex === -1) {
+    return false;
+  }
+
+  // Row 2 in sheets corresponds to startRowIndex: 1 (0-indexed)
+  const actualRowIndex = rowIndex + 1;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: actualRowIndex,
+              endIndex: actualRowIndex + 1,
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  return true;
+}

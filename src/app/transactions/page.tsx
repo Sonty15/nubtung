@@ -67,7 +67,7 @@ export default function TransactionsPage() {
           </div>
         )}
 
-        <TransactionTable transactions={transactions} loading={loading} />
+        <TransactionTable transactions={transactions} loading={loading} onRefresh={fetchTransactions} />
       </main>
     </div>
   );

@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import { Transaction } from '@/types';
-import { ExternalLink, Search, Filter } from 'lucide-react';
+import { ExternalLink, Search, Filter, Trash2 } from 'lucide-react';
 
 interface TransactionTableProps {
   transactions: Transaction[];
   loading: boolean;
+  onRefresh?: () => void;
 }
 
-export default function TransactionTable({ transactions, loading }: TransactionTableProps) {
+export default function TransactionTable({ transactions, loading, onRefresh }: TransactionTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedAccount, setSelectedAccount] = useState<string>('ALL');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const filtered = transactions.filter((tx) => {
     const matchSearch =
@@ -25,6 +27,28 @@ export default function TransactionTable({ transactions, loading }: TransactionT
 
     return matchSearch && matchType && matchAccount;
   });
+
+  const handleDelete = async (tx: Transaction) => {
+    if (!confirm(`คุณต้องการลบรายการ "${tx.note || tx.category}" จำนวน ฿${tx.amount.toLocaleString()} ใช่หรือไม่?`)) {
+      return;
+    }
+
+    setDeletingId(tx.id);
+    try {
+      const res = await fetch(`/api/transactions?id=${encodeURIComponent(tx.id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete transaction');
+      }
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      alert(`ลบรายการไม่สำเร็จ: ${err.message}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden transition-colors">
@@ -62,6 +86,7 @@ export default function TransactionTable({ transactions, loading }: TransactionT
             <option value="ALL">บัญชีทั้งหมด</option>
             <option value="K PLUS">K PLUS</option>
             <option value="Make by KBank">Make by KBank</option>
+            <option value="เป๋าตัง">เป๋าตัง</option>
             <option value="เงินสด">เงินสด</option>
           </select>
         </div>
@@ -79,18 +104,19 @@ export default function TransactionTable({ transactions, loading }: TransactionT
               <th className="px-5 py-3.5">รายละเอียด</th>
               <th className="px-5 py-3.5 text-right">จำนวนเงิน</th>
               <th className="px-5 py-3.5 text-center">สลิป</th>
+              <th className="px-3 py-3.5 text-center w-12">จัดการ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
             {loading ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-slate-400">
+                <td colSpan={8} className="text-center py-12 text-slate-400">
                   กำลังโหลดข้อมูลจาก Google Sheets...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-slate-400">
+                <td colSpan={8} className="text-center py-12 text-slate-400">
                   ไม่พบรายการที่ตรงกับเงื่อนไข
                 </td>
               </tr>
@@ -105,6 +131,8 @@ export default function TransactionTable({ transactions, loading }: TransactionT
                   badgeColor = 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900';
                   typeText = 'โอนย้ายเงิน';
                 }
+
+                const isDeleting = deletingId === tx.id;
 
                 return (
                   <tr key={`${tx.id || 'row'}-${idx}`} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
@@ -171,6 +199,17 @@ export default function TransactionTable({ transactions, loading }: TransactionT
                           <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
                         );
                       })()}
+                    </td>
+
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button
+                        onClick={() => handleDelete(tx)}
+                        disabled={isDeleting}
+                        title="ลบรายการนี้"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all disabled:opacity-30"
+                      >
+                        <Trash2 className={`w-3.5 h-3.5 ${isDeleting ? 'animate-spin' : ''}`} />
+                      </button>
                     </td>
                   </tr>
                 );

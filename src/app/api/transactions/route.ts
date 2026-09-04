@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllTransactions, appendTransactionRow, ensureSheetStructure } from '@/lib/google/sheets';
+import { getAllTransactions, appendTransactionRow, deleteTransactionRow, ensureSheetStructure } from '@/lib/google/sheets';
 import { Transaction, DashboardSummary } from '@/types';
 
 export async function GET() {
@@ -134,6 +134,30 @@ export async function POST(req: Request) {
     console.error('Error creating transaction:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to record transaction' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'กรุณาระบุรหัสรายการ (ID) ที่ต้องการลบ' }, { status: 400 });
+    }
+
+    const deleted = await deleteTransactionRow(id);
+    if (!deleted) {
+      return NextResponse.json({ error: 'ไม่พบรายการที่ต้องการลบใน Google Sheets' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'ลบรายการสำเร็จ' });
+  } catch (error: any) {
+    console.error('Error deleting transaction:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete transaction' },
       { status: 500 }
     );
   }
