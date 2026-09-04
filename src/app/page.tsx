@@ -77,8 +77,7 @@ export default function DashboardPage() {
       if (periodMode === 'MONTH') {
         if (useSalaryCycle) {
           const { startDate, endDate } = getSalaryCycleRange(selectedDate, 26);
-          // When in salary cycle view, only show real transactions (ignore manual balance adjustments)
-          return txDate >= startDate && txDate <= endDate && tx.source !== 'MANUAL';
+          return txDate >= startDate && txDate <= endDate;
         }
         return txY === year && txM - 1 === month;
       }
@@ -92,10 +91,10 @@ export default function DashboardPage() {
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
 
-        return txDate >= startOfWeek && txDate <= endOfWeek && tx.source !== 'MANUAL';
+        return txDate >= startOfWeek && txDate <= endOfWeek;
       }
       if (periodMode === 'DAY') {
-        return txY === year && txM - 1 === month && txD === date && tx.source !== 'MANUAL';
+        return txY === year && txM - 1 === month && txD === date;
       }
       return true;
     });
