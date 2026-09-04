@@ -1,8 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Transaction, TransactionType } from '@/types';
-import { ExternalLink, Search, Filter, Trash2, Edit3, MessageSquarePlus, X, Check, Save } from 'lucide-react';
+import {
+  ExternalLink,
+  Search,
+  Filter,
+  Trash2,
+  Edit3,
+  MessageSquarePlus,
+  X,
+  Check,
+  Save,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-react';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -29,6 +43,10 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
   const [selectedAccount, setSelectedAccount] = useState<string>('ALL');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   // Quick Note Edit Modal (for Auto-sync transactions)
   const [editingNoteTx, setEditingNoteTx] = useState<Transaction | null>(null);
   const [editNoteText, setEditNoteText] = useState('');
@@ -45,17 +63,33 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
   const [manualNote, setManualNote] = useState('');
   const [isSavingManual, setIsSavingManual] = useState(false);
 
-  const filtered = transactions.filter((tx) => {
-    const matchSearch =
-      (tx.note || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (tx.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (tx.account || '').toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter transactions
+  const filtered = useMemo(() => {
+    return transactions.filter((tx) => {
+      const matchSearch =
+        (tx.note || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (tx.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (tx.account || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchType = selectedType === 'ALL' || tx.type === selectedType;
-    const matchAccount = selectedAccount === 'ALL' || tx.account === selectedAccount;
+      const matchType = selectedType === 'ALL' || tx.type === selectedType;
+      const matchAccount = selectedAccount === 'ALL' || tx.account === selectedAccount;
 
-    return matchSearch && matchType && matchAccount;
-  });
+      return matchSearch && matchType && matchAccount;
+    });
+  }, [transactions, searchTerm, selectedType, selectedAccount]);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedType, selectedAccount, pageSize]);
+
+  // Paginated slice
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginatedTransactions = useMemo(() => {
+    return filtered.slice(startIndex, endIndex);
+  }, [filtered, startIndex, endIndex]);
 
   const handleDelete = async (tx: Transaction) => {
     if (!confirm(`คุณต้องการลบรายการที่บันทึกเอง "${tx.note || tx.category}" จำนวน ฿${tx.amount.toLocaleString()} ใช่หรือไม่?`)) {
@@ -190,30 +224,47 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-3 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="ALL">ประเภททั้งหมด</option>
-              <option value="EXPENSE">🔴 รายจ่าย</option>
-              <option value="INCOME">🟢 รายรับ</option>
-              <option value="TRANSFER">🔄 โอนย้ายเงิน</option>
-            </select>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-1.5">
+              <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-3 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="ALL">ประเภททั้งหมด</option>
+                <option value="EXPENSE">🔴 รายจ่าย</option>
+                <option value="INCOME">🟢 รายรับ</option>
+                <option value="TRANSFER">🔄 โอนย้ายเงิน</option>
+              </select>
 
-            <select
-              value={selectedAccount}
-              onChange={(e) => setSelectedAccount(e.target.value)}
-              className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-3 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="ALL">บัญชีทั้งหมด</option>
-              <option value="K PLUS">K PLUS</option>
-              <option value="Make by KBank">Make by KBank</option>
-              <option value="เป๋าตัง">เป๋าตัง</option>
-              <option value="เงินสด">เงินสด</option>
-            </select>
+              <select
+                value={selectedAccount}
+                onChange={(e) => setSelectedAccount(e.target.value)}
+                className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-3 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="ALL">บัญชีทั้งหมด</option>
+                <option value="K PLUS">K PLUS</option>
+                <option value="Make by KBank">Make by KBank</option>
+                <option value="เป๋าตัง">เป๋าตัง</option>
+                <option value="เงินสด">เงินสด</option>
+              </select>
+            </div>
+
+            {/* Page Size Selector */}
+            <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 pl-1">
+              <span className="hidden sm:inline">แสดง:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-2.5 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+              >
+                <option value={20}>20 แถว</option>
+                <option value={50}>50 แถว</option>
+                <option value={100}>100 แถว</option>
+                <option value={200}>200 แถว</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -246,7 +297,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                   </td>
                 </tr>
               ) : (
-                filtered.map((tx, idx) => {
+                paginatedTransactions.map((tx, idx) => {
                   let badgeColor = 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900';
                   let typeText = 'รายจ่าย';
                   if (tx.type === 'INCOME') {
@@ -284,18 +335,9 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                       </td>
 
                       <td className="px-5 py-3 max-w-xs text-slate-800 dark:text-slate-200 text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate" title={tx.note || 'ไม่มีรายละเอียด'}>
-                            {tx.note || <span className="text-slate-400 italic">ไม่มีรายละเอียด</span>}
-                          </span>
-                          <button
-                            onClick={() => handleOpenEdit(tx)}
-                            title={isManual ? 'แก้ไขรายการทั้งหมด' : 'เพิ่ม / แก้ไขรายละเอียดเพิ่มเติม'}
-                            className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors shrink-0 opacity-40 group-hover:opacity-100"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        <span className="truncate block" title={tx.note || 'ไม่มีรายละเอียด'}>
+                          {tx.note || <span className="text-slate-400 italic">ไม่มีรายละเอียด</span>}
+                        </span>
                       </td>
 
                       <td className="px-5 py-3 text-right whitespace-nowrap font-bold text-xs sm:text-sm">
@@ -368,9 +410,63 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
           </table>
         </div>
 
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400">
-          <span>แสดง {filtered.length} รายการ</span>
-          <span>เชื่อมต่อ Google Sheets สด</span>
+        {/* Pagination Footer */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+          <div>
+            {filtered.length > 0 ? (
+              <span>
+                แสดง <strong className="text-slate-800 dark:text-slate-200">{startIndex + 1} - {endIndex}</strong> จากทั้งหมด{' '}
+                <strong className="text-slate-800 dark:text-slate-200">{filtered.length.toLocaleString()}</strong> รายการ
+              </span>
+            ) : (
+              <span>0 รายการ</span>
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                title="หน้าแรกสุด"
+                className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                title="หน้าก่อนหน้า"
+                className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl font-medium">
+                <span>หน้า</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{currentPage}</span>
+                <span>/</span>
+                <span>{totalPages}</span>
+              </div>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                title="หน้าถัดไป"
+                className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                title="หน้าสุดท้าย"
+                className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
