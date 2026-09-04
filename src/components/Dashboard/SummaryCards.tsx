@@ -70,7 +70,8 @@ export default function SummaryCards({
     overallSummary?.accountBalances ||
     summary?.accountBalances || {
       'K PLUS': kplusBalance ?? 43253.07,
-      'Make by KBank': makeBalance ?? 903.29,
+      'Make by KBank': makeBalance ?? 3672.29,
+      'เป๋าตัง': 195.44,
     };
 
   const resolvedTotalCash =
@@ -80,8 +81,8 @@ export default function SummaryCards({
     Object.values(resolvedAccountBalances).reduce((sum, val) => sum + val, 0);
 
   const kplusBal = resolvedAccountBalances['K PLUS'] ?? 43253.07;
-  const makeBal = resolvedAccountBalances['Make by KBank'] ?? 903.29;
-  const paotangBal = resolvedAccountBalances['เป๋าตัง'] ?? 0;
+  const makeBal = resolvedAccountBalances['Make by KBank'] ?? 3672.29;
+  const paotangBal = resolvedAccountBalances['เป๋าตัง'] ?? 195.44;
 
   return (
     <div className="space-y-4">

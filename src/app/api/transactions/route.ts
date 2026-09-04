@@ -27,17 +27,17 @@ export async function GET() {
       }
     }
 
-    // Baseline balances as of latest reconciled statement (2026-09-02)
+    // Verified baseline balances as of 2026-09-04
     const dynamicAccountBalances: Record<string, number> = {
       'K PLUS': 43253.07,
-      'Make by KBank': 903.29,
-      'เป๋าตัง': 0.00,
+      'Make by KBank': 3672.29,
+      'เป๋าตัง': 195.44,
       'เงินสด': 0.00,
     };
 
-    // Calculate real-time dynamic balance updates from transactions dated >= 2026-09-03
+    // Calculate real-time dynamic balance updates from transactions dated >= 2026-09-04
     for (const tx of transactions) {
-      if (tx.date >= '2026-09-03') {
+      if (tx.date >= '2026-09-04') {
         const acc = tx.account || 'เงินสด';
         if (dynamicAccountBalances[acc] === undefined) {
           dynamicAccountBalances[acc] = 0;
@@ -59,8 +59,7 @@ export async function GET() {
             note.includes(paotangAccountNo) ||
             note.includes('เป๋าตัง') ||
             note.includes('g-wallet') ||
-            note.includes('ktb g-wallet') ||
-            (tx.account === 'Make by KBank' && note.includes('วรโชติ') && tx.amount === 270)
+            note.includes('ktb g-wallet')
           ) {
             dynamicAccountBalances['เป๋าตัง'] = (dynamicAccountBalances['เป๋าตัง'] || 0) + tx.amount;
           } else if (note.includes('2996') || note.includes('make by kbank') || note.includes('make')) {
