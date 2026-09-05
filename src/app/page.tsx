@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from '@/components/Navbar';
+import MobileBottomNav from '@/components/MobileBottomNav';
 import SummaryCards from '@/components/Dashboard/SummaryCards';
 import PeriodSelector, { PeriodMode, getSalaryCycleRange } from '@/components/Dashboard/PeriodSelector';
 import TrendChart, { ChartDataPoint } from '@/components/Dashboard/TrendChart';
@@ -191,11 +192,11 @@ export default function DashboardPage() {
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0b0f19] transition-colors">
       <Navbar onSyncComplete={fetchData} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-8 pb-28 md:pb-8">
         {/* Header & Action bar */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               ภาพรวมการเงิน (Dashboard)
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -414,6 +415,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      <MobileBottomNav onSyncComplete={fetchData} onRefresh={fetchData} />
     </div>
   );
 }

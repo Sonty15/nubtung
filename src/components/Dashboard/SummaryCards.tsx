@@ -44,7 +44,7 @@ export default function SummaryCards({
       badge: 'เงินออก',
     },
     {
-      title: 'กระแสเงินสดสุทธิ (Net Flow)',
+      title: 'กระแสเงินสดสุทธิ',
       amount: summary?.netBalance || 0,
       icon: Wallet,
       color: 'sky',
@@ -85,69 +85,69 @@ export default function SummaryCards({
   const paotangBal = resolvedAccountBalances['เป๋าตัง'] ?? 195.44;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Real Account Balances Header Bar */}
-      <div className="p-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 rounded-3xl text-white shadow-lg shadow-emerald-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 rounded-3xl text-white shadow-lg shadow-emerald-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0">
-            <Building2 className="w-6 h-6" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0">
+            <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <span className="text-xs uppercase tracking-wider text-emerald-100 font-semibold block">
-              ยอดเงินในบัญชีจริงทั้งหมด (Total Cash in Accounts)
+            <span className="text-[10px] sm:text-xs uppercase tracking-wider text-emerald-100 font-semibold block">
+              เงินในบัญชีจริงทั้งหมด (Total Cash)
             </span>
-            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <span className="text-xl sm:text-3xl font-extrabold tracking-tight">
               ฿{resolvedTotalCash.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
         {/* Dynamic Breakdown by Bank / Account */}
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <div className="px-3.5 py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
-            <span className="text-[10px] text-emerald-100 font-medium block">🔵 K PLUS (กสิกร)</span>
-            <span className="text-sm font-bold">฿{kplusBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1 sm:pt-0">
+          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20 flex-1 sm:flex-none">
+            <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🔵 K PLUS</span>
+            <span className="text-xs sm:text-sm font-bold">฿{kplusBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
           </div>
-          <div className="px-3.5 py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
-            <span className="text-[10px] text-emerald-100 font-medium block">🟡 Make by KBank</span>
-            <span className="text-sm font-bold">฿{makeBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20 flex-1 sm:flex-none">
+            <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🟡 Make</span>
+            <span className="text-xs sm:text-sm font-bold">฿{makeBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
           </div>
           {paotangBal !== 0 && (
-            <div className="px-3.5 py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
-              <span className="text-[10px] text-emerald-100 font-medium block">📲 เป๋าตัง</span>
-              <span className="text-sm font-bold">฿{paotangBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20 flex-1 sm:flex-none">
+              <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">📲 เป๋าตัง</span>
+              <span className="text-xs sm:text-sm font-bold">฿{paotangBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* 4 Period Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 Period Metric Cards (2x2 on mobile, 4 in a row on desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {cards.map((card, idx) => {
           const Icon = card.icon;
           return (
             <div
               key={idx}
-              className={`p-5 rounded-3xl bg-white dark:bg-slate-900 border ${card.border} shadow-xs flex flex-col justify-between transition-all hover:shadow-md`}
+              className={`p-3.5 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border ${card.border} shadow-xs flex flex-col justify-between transition-all hover:shadow-md`}
             >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{card.title}</span>
-                <div className={`w-8 h-8 rounded-xl ${card.bg} ${card.text} flex items-center justify-center`}>
-                  <Icon className="w-4 h-4" />
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 line-clamp-1">{card.title}</span>
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl ${card.bg} ${card.text} flex items-center justify-center shrink-0`}>
+                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className={`text-2xl font-extrabold tracking-tight ${card.text}`}>
+                <div className="flex items-baseline gap-1 mb-0.5 sm:mb-1">
+                  <span className={`text-base sm:text-2xl font-extrabold tracking-tight ${card.text}`}>
                     {loading ? (
-                      <span className="inline-block w-24 h-7 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-lg" />
+                      <span className="inline-block w-16 sm:w-24 h-5 sm:h-7 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-lg" />
                     ) : (
                       `฿${card.amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                     )}
                   </span>
                 </div>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">{card.badge}</span>
+                <span className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-medium">{card.badge}</span>
               </div>
             </div>
           );
