@@ -31,7 +31,10 @@ export default function MobileBottomNav({ onSyncComplete, onRefresh }: MobileBot
   };
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-2 shadow-lg shadow-black/5 safe-area-bottom transition-colors">
+    <div
+      className="md:hidden fixed inset-x-0 bottom-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl transition-colors"
+      style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}
+    >
       <div className="flex items-center justify-around max-w-md mx-auto">
         {/* Dashboard */}
         <Link
