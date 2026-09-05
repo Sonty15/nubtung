@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface SyncButtonProps {
@@ -8,10 +8,15 @@ interface SyncButtonProps {
 }
 
 export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [statusText, setStatusText] = useState<string>('ซิงค์ข้อมูลทั้งหมด');
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSyncAll = async () => {
     setLoading(true);
