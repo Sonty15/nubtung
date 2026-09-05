@@ -48,23 +48,39 @@ export async function GET() {
           dynamicAccountBalances[acc] -= tx.amount;
         } else if (tx.type === 'TRANSFER') {
           // Deduct from sender account
-          dynamicAccountBalances[acc] -= tx.amount;
+          const fromAcc = tx.account || 'เงินสด';
+          dynamicAccountBalances[fromAcc] = (dynamicAccountBalances[fromAcc] || 0) - tx.amount;
 
           // Credit to destination account
           const note = (tx.note || '').toLowerCase();
           const paotangAccountNo = (process.env.PAOTANG_ACCOUNT_NO || '9289').toLowerCase();
 
-          if (
+          let toAcc: string | null = null;
+          if (note.includes('ไปยัง k plus') || note.includes('เข้า k plus') || note.includes('to k plus') || note.includes('ฝากเงินเข้า k plus')) {
+            toAcc = 'K PLUS';
+          } else if (note.includes('ไปยัง make') || note.includes('เข้า make') || note.includes('to make') || note.includes('ฝากเงินเข้า make')) {
+            toAcc = 'Make by KBank';
+          } else if (note.includes('ไปยัง เป๋าตัง') || note.includes('เข้า เป๋าตัง') || note.includes('to paotang') || note.includes('เติมเงิน g-wallet')) {
+            toAcc = 'เป๋าตัง';
+          } else if (note.includes('ไปยัง เงินสด') || note.includes('เข้า เงินสด') || note.includes('ถอนเงินสด') || note.includes('to cash') || note.includes('ถอน atm')) {
+            toAcc = 'เงินสด';
+          } else if (
             note.includes(paotangAccountNo) ||
             note.includes('เป๋าตัง') ||
             note.includes('g-wallet') ||
             note.includes('ktb g-wallet')
           ) {
-            dynamicAccountBalances['เป๋าตัง'] = (dynamicAccountBalances['เป๋าตัง'] || 0) + tx.amount;
+            toAcc = 'เป๋าตัง';
           } else if (note.includes('2996') || note.includes('make by kbank') || note.includes('make')) {
-            dynamicAccountBalances['Make by KBank'] = (dynamicAccountBalances['Make by KBank'] || 0) + tx.amount;
+            toAcc = 'Make by KBank';
           } else if (note.includes('k plus') || note.includes('0568966651') || note.includes('กสิกร')) {
-            dynamicAccountBalances['K PLUS'] = (dynamicAccountBalances['K PLUS'] || 0) + tx.amount;
+            toAcc = 'K PLUS';
+          } else if (note.includes('เงินสด') && fromAcc !== 'เงินสด') {
+            toAcc = 'เงินสด';
+          }
+
+          if (toAcc) {
+            dynamicAccountBalances[toAcc] = (dynamicAccountBalances[toAcc] || 0) + tx.amount;
           }
         }
       }

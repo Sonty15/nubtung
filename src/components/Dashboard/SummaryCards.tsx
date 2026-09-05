@@ -72,6 +72,7 @@ export default function SummaryCards({
       'K PLUS': kplusBalance ?? 43253.07,
       'Make by KBank': makeBalance ?? 3672.29,
       'เป๋าตัง': 195.44,
+      'เงินสด': 0,
     };
 
   const resolvedTotalCash =
@@ -83,6 +84,7 @@ export default function SummaryCards({
   const kplusBal = resolvedAccountBalances['K PLUS'] ?? 43253.07;
   const makeBal = resolvedAccountBalances['Make by KBank'] ?? 3672.29;
   const paotangBal = resolvedAccountBalances['เป๋าตัง'] ?? 195.44;
+  const cashBal = resolvedAccountBalances['เงินสด'] ?? 0;
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -94,7 +96,7 @@ export default function SummaryCards({
           </div>
           <div>
             <span className="text-[10px] sm:text-xs uppercase tracking-wider text-emerald-100 font-semibold block">
-              เงินในบัญชีจริงทั้งหมด (Total Cash)
+              เงินในบัญชีจริงและเงินสดทั้งหมด (Total Cash)
             </span>
             <span className="text-xl sm:text-3xl font-extrabold tracking-tight">
               ฿{resolvedTotalCash.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -102,22 +104,24 @@ export default function SummaryCards({
           </div>
         </div>
 
-        {/* Dynamic Breakdown by Bank / Account */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1 sm:pt-0">
-          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20 flex-1 sm:flex-none">
+        {/* Dynamic Breakdown by Bank / Account (2x2 on mobile, flex row on desktop) */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 pt-1 sm:pt-0 w-full sm:w-auto">
+          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🔵 K PLUS</span>
             <span className="text-xs sm:text-sm font-bold">฿{kplusBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
           </div>
-          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20 flex-1 sm:flex-none">
+          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🟡 Make</span>
             <span className="text-xs sm:text-sm font-bold">฿{makeBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
           </div>
-          {paotangBal !== 0 && (
-            <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20 flex-1 sm:flex-none">
-              <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">📲 เป๋าตัง</span>
-              <span className="text-xs sm:text-sm font-bold">฿{paotangBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
-            </div>
-          )}
+          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+            <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">📲 เป๋าตัง</span>
+            <span className="text-xs sm:text-sm font-bold">฿{paotangBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+            <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">💵 เงินสด</span>
+            <span className="text-xs sm:text-sm font-bold">฿{cashBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+          </div>
         </div>
       </div>
 
