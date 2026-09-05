@@ -204,7 +204,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-3">
             <ManualTransactionModal onSuccess={fetchData} />
           </div>
         </div>

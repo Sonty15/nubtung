@@ -59,8 +59,11 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
           </nav>
 
           {/* Right Action buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            <SyncButton onSyncComplete={onSyncComplete} />
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Sync button on desktop (mobile has dedicated sync in bottom nav) */}
+            <div className="hidden md:block">
+              <SyncButton onSyncComplete={onSyncComplete} />
+            </div>
 
             <ThemeToggle />
 

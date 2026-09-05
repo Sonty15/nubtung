@@ -225,45 +225,41 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-            <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="flex-1 sm:flex-none text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-2.5 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="ALL">ประเภททั้งหมด</option>
-                <option value="EXPENSE">🔴 รายจ่าย</option>
-                <option value="INCOME">🟢 รายรับ</option>
-                <option value="TRANSFER">🔄 โอนย้าย</option>
-              </select>
+          <div className="grid grid-cols-3 gap-1.5 w-full sm:flex sm:w-auto sm:items-center sm:gap-2">
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-2 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 truncate font-medium"
+            >
+              <option value="ALL">ทุกประเภท</option>
+              <option value="EXPENSE">🔴 รายจ่าย</option>
+              <option value="INCOME">🟢 รายรับ</option>
+              <option value="TRANSFER">🔄 โอนย้าย</option>
+            </select>
 
-              <select
-                value={selectedAccount}
-                onChange={(e) => setSelectedAccount(e.target.value)}
-                className="flex-1 sm:flex-none text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-2.5 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="ALL">บัญชีทั้งหมด</option>
-                <option value="K PLUS">K PLUS</option>
-                <option value="Make by KBank">Make</option>
-                <option value="เป๋าตัง">เป๋าตัง</option>
-                <option value="เงินสด">เงินสด</option>
-              </select>
-            </div>
+            <select
+              value={selectedAccount}
+              onChange={(e) => setSelectedAccount(e.target.value)}
+              className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-2 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 truncate font-medium"
+            >
+              <option value="ALL">ทุกบัญชี</option>
+              <option value="K PLUS">K PLUS</option>
+              <option value="Make by KBank">Make</option>
+              <option value="เป๋าตัง">เป๋าตัง</option>
+              <option value="เงินสด">เงินสด</option>
+            </select>
 
             {/* Page Size Selector */}
-            <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-2.5 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
-              >
-                <option value={20}>20 แถว</option>
-                <option value={50}>50 แถว</option>
-                <option value={100}>100 แถว</option>
-                <option value={200}>200 แถว</option>
-              </select>
-            </div>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-2 py-2 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold truncate"
+            >
+              <option value={20}>20 แถว</option>
+              <option value={50}>50 แถว</option>
+              <option value={100}>100 แถว</option>
+              <option value={200}>200 แถว</option>
+            </select>
           </div>
         </div>
 
