@@ -23,16 +23,16 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
 
   return (
     <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 shadow-xs transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
           {/* Brand logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-emerald-500/20 shadow-md group-hover:scale-105 transition-transform">
-              <Wallet className="w-5 h-5" />
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 shrink-0 group">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-emerald-500/20 shadow-md group-hover:scale-105 transition-transform shrink-0">
+              <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">นับตังค์</span>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 block font-semibold uppercase tracking-wider">Nubtang Finance</span>
+              <span className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">นับตังค์</span>
+              <span className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 block font-semibold uppercase tracking-wider leading-none">Nubtang Finance</span>
             </div>
           </Link>
 
@@ -59,7 +59,7 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
           </nav>
 
           {/* Right Action buttons */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <SyncButton onSyncComplete={onSyncComplete} />
 
             <ThemeToggle />
@@ -67,7 +67,7 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
             <button
               onClick={handleLogout}
               title="ออกจากระบบ"
-              className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors"
+              className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors shrink-0"
             >
               <LogOut className="w-4 h-4" />
             </button>

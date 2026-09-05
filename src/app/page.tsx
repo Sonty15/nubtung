@@ -345,7 +345,7 @@ export default function DashboardPage() {
                   ไม่มีรายการธุรกรรมในช่วงเวลานี้
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/80 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="divide-y divide-slate-200/60 dark:divide-slate-800/60 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
                   {filteredTransactions.slice(0, 15).map((tx, idx) => (
                     <div key={`${tx.id || 'recent'}-${idx}`} className="py-3 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">

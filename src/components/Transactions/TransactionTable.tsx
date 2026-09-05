@@ -213,7 +213,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
     <>
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden transition-colors">
         {/* Table controls */}
-        <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center justify-between">
+        <div className="p-3.5 sm:p-4 border-b border-slate-200/70 dark:border-slate-800 flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center justify-between">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -268,7 +268,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         </div>
 
         {/* 1. Mobile Feed View (< md screen) */}
-        <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800/70">
+        <div className="block md:hidden p-3 space-y-2.5 bg-slate-50/50 dark:bg-slate-950/40">
           {loading ? (
             <div className="p-8 text-center text-xs text-slate-400">
               กำลังโหลดข้อมูลจาก Google Sheets...
@@ -299,7 +299,10 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                   : null;
 
               return (
-                <div key={`m-${tx.id || 'm-row'}-${idx}`} className="p-3.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
+                <div
+                  key={`m-${tx.id || 'm-row'}-${idx}`}
+                  className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-200/70 dark:border-slate-800/90 shadow-xs hover:border-emerald-500/30 transition-all"
+                >
                   <div className="flex items-start justify-between gap-3">
                     {/* Left details */}
                     <div className="flex-1 min-w-0">
@@ -389,7 +392,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         {/* 2. Desktop Table View (>= md screen) */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-slate-50/80 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase border-b border-slate-100 dark:border-slate-800">
+            <thead className="bg-slate-50/80 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase border-b border-slate-200/70 dark:border-slate-800">
               <tr>
                 <th className="px-5 py-3.5">วัน-เวลา</th>
                 <th className="px-5 py-3.5">ประเภท</th>
@@ -401,7 +404,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                 <th className="px-3 py-3.5 text-center w-20">จัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
+            <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
               {loading ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-slate-400">
@@ -529,7 +532,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         </div>
 
         {/* Pagination Footer */}
-        <div className="p-3.5 sm:p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+        <div className="p-3.5 sm:p-4 border-t border-slate-200/70 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
           <div>
             {filtered.length > 0 ? (
               <span>

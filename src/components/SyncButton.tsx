@@ -70,19 +70,20 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
       <button
         onClick={handleSyncAll}
         disabled={loading}
-        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition-all active:scale-95 ${
+        title="ซิงค์ข้อมูลทั้งหมด (สลิปและ Statement)"
+        className={`flex items-center gap-2 p-2 sm:px-3.5 sm:py-2 rounded-xl text-white text-xs font-semibold shadow-md transition-all active:scale-95 ${
           loading
             ? 'bg-gray-400 cursor-not-allowed'
             : 'bg-emerald-600 hover:bg-emerald-700'
         }`}
       >
-        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-        <span>{statusText}</span>
+        <RefreshCw className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${loading ? 'animate-spin' : ''}`} />
+        <span className="hidden sm:inline">{statusText}</span>
       </button>
 
       {resultMessage && (
         <div
-          className={`absolute top-12 right-0 z-50 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-xl border whitespace-nowrap animate-in fade-in slide-in-from-top-2 duration-200 ${
+          className={`absolute top-12 right-0 z-50 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-xl border max-w-[85vw] sm:max-w-md animate-in fade-in slide-in-from-top-2 duration-200 ${
             isError
               ? 'bg-red-50 dark:bg-red-950/90 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'
               : 'bg-emerald-50 dark:bg-emerald-950/90 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800'
@@ -93,7 +94,7 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
           ) : (
             <CheckCircle className="w-4 h-4 shrink-0 text-emerald-500" />
           )}
-          <span className="font-medium">{resultMessage}</span>
+          <span className="font-medium truncate sm:whitespace-normal">{resultMessage}</span>
         </div>
       )}
     </div>
