@@ -30,6 +30,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Install poppler-utils for pdftotext (required for bank statement PDF parsing)
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils && rm -rf /var/lib/apt/lists/*
+
 # Security: run as non-root user
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 -g nodejs nextjs
@@ -39,8 +42,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Create data directory for SQLite database persistence
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+# Create data directory for SQLite database persistence and PDF temp files
+RUN mkdir -p /app/data/temp && chown -R nextjs:nodejs /app/data
 
 USER nextjs
 
