@@ -17,6 +17,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Calendar,
+  CopyCheck,
 } from 'lucide-react';
 
 interface TransactionTableProps {
@@ -43,6 +44,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedAccount, setSelectedAccount] = useState<string>('ALL');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -209,6 +211,25 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
     }
   };
 
+  const handleDeduplicate = async () => {
+    if (!confirm('คุณต้องการตรวจสอบและลบรายการที่ซ้ำกันใน Google Sheets ทั้งหมดใช่หรือไม่?')) {
+      return;
+    }
+
+    setIsDeduplicating(true);
+    try {
+      const res = await fetch('/api/transactions/deduplicate', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to deduplicate');
+      alert(data.message || 'ลบรายการซ้ำเรียบร้อยแล้ว');
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      alert(`เกิดข้อผิดพลาด: ${err.message}`);
+    } finally {
+      setIsDeduplicating(false);
+    }
+  };
+
   return (
     <>
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden transition-colors">
@@ -260,6 +281,17 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               <option value={100}>100 แถว</option>
               <option value={200}>200 แถว</option>
             </select>
+
+            {/* Deduplicate Button */}
+            <button
+              onClick={handleDeduplicate}
+              disabled={isDeduplicating || loading}
+              title="ตรวจสอบและลบรายการที่ซ้ำกันใน Google Sheets"
+              className="col-span-3 sm:col-span-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/60 transition-colors disabled:opacity-50"
+            >
+              <CopyCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>{isDeduplicating ? 'กำลังล้าง...' : 'ลบรายการซ้ำ'}</span>
+            </button>
           </div>
         </div>
 

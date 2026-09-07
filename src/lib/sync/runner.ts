@@ -1,7 +1,7 @@
 import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
-import { appendTransactionRows, ensureSheetStructure } from '@/lib/google/sheets';
-import { isSlipProcessed, markSlipProcessed } from '@/lib/db/sqlite';
+import { appendTransactionRows, ensureSheetStructure, getExistingDriveFileIds } from '@/lib/google/sheets';
+import { isSlipProcessed, markSlipProcessed, markSlipsProcessedBatch } from '@/lib/db/sqlite';
 import { syncStatementsFromDrive } from '@/lib/statement/parser';
 import { Transaction } from '@/types';
 
@@ -21,6 +21,17 @@ export async function executeFullSync() {
   console.log(`[Auto-Sync] 🔄 Starting high-speed background sync at ${new Date().toISOString()}...`);
 
   await ensureSheetStructure();
+
+  // Auto-hydrate SQLite cache from Google Sheets so fresh pods/restarts never re-process old slips
+  try {
+    const sheetDriveIds = await getExistingDriveFileIds();
+    if (sheetDriveIds.size > 0) {
+      markSlipsProcessedBatch(Array.from(sheetDriveIds));
+      console.log(`[Auto-Sync] 🛡️ Hydrated SQLite with ${sheetDriveIds.size} existing slips from Google Sheets.`);
+    }
+  } catch (err: any) {
+    console.error('[Auto-Sync] Warning: Failed to hydrate slip cache from sheets:', err.message);
+  }
 
   const kplusFolderId = process.env.GOOGLE_DRIVE_KPLUS_FOLDER_ID;
   const makeFolderId = process.env.GOOGLE_DRIVE_MAKE_FOLDER_ID;

@@ -147,11 +147,47 @@ export async function ensureSheetStructure() {
 }
 
 /**
+ * Retrieves all Drive File IDs currently recorded in Google Sheets (Column J)
+ */
+export async function getExistingDriveFileIds(): Promise<Set<string>> {
+  try {
+    const sheets = await getSheetsClient();
+    const spreadsheetId = getSpreadsheetId();
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${TRANSACTIONS_SHEET}'!J2:J`,
+    });
+
+    const rows = response.data.values || [];
+    const ids = new Set<string>();
+    for (const r of rows) {
+      if (r[0] && String(r[0]).trim()) {
+        ids.add(String(r[0]).trim());
+      }
+    }
+    return ids;
+  } catch (err: any) {
+    console.error('[Sheets] Error getting existing drive file ids:', err.message);
+    return new Set<string>();
+  }
+}
+
+/**
  * Appends a new transaction row to Google Sheets
  */
 export async function appendTransactionRow(tx: Transaction) {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
+
+  // Deduplication safety check for slips
+  if (tx.driveFileId && tx.driveFileId.trim()) {
+    const existingIds = await getExistingDriveFileIds();
+    if (existingIds.has(tx.driveFileId.trim())) {
+      console.log(`[Sheets] Slip ${tx.driveFileId} already exists in sheet, skipping append.`);
+      return;
+    }
+  }
 
   // Create human friendly emoji prefix for type
   let typeLabel: string = tx.type;
@@ -190,7 +226,7 @@ export async function appendTransactionRow(tx: Transaction) {
 }
 
 /**
- * Appends multiple transaction rows in a single batch API call
+ * Appends multiple transaction rows in a single batch API call with deduplication
  */
 export async function appendTransactionRows(txs: Transaction[]) {
   if (txs.length === 0) return;
@@ -198,7 +234,21 @@ export async function appendTransactionRows(txs: Transaction[]) {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
 
-  const rows = txs.map(tx => {
+  // Deduplication guard: filter out any transactions whose driveFileId already exists in Google Sheets
+  const existingIds = await getExistingDriveFileIds();
+  const validTxs = txs.filter(tx => {
+    if (tx.driveFileId && tx.driveFileId.trim()) {
+      return !existingIds.has(tx.driveFileId.trim());
+    }
+    return true;
+  });
+
+  if (validTxs.length === 0) {
+    console.log('[Sheets] All transactions in batch already exist in sheet, skipping append.');
+    return;
+  }
+
+  const rows = validTxs.map(tx => {
     let typeLabel: string = tx.type;
     if (tx.type === 'EXPENSE') typeLabel = '🔴 รายจ่าย';
     else if (tx.type === 'INCOME') typeLabel = '🟢 รายรับ';
@@ -454,3 +504,115 @@ export async function updateManualTransaction(tx: {
 
   return { success: true };
 }
+
+/**
+ * Scans Google Sheets, removes all duplicate transactions, and rewrites clean unique rows.
+ * Also synchronizes unique driveFileIds into SQLite cache.
+ */
+export async function deduplicateSheetTransactions(): Promise<{ beforeCount: number; afterCount: number; removedCount: number }> {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${TRANSACTIONS_SHEET}'!A1:K`,
+    valueRenderOption: 'FORMATTED_VALUE',
+  });
+
+  const allRows = res.data.values || [];
+  if (allRows.length <= 1) {
+    return { beforeCount: 0, afterCount: 0, removedCount: 0 };
+  }
+
+  const dataRows = allRows.slice(1);
+  const seenDriveFileIds = new Set<string>();
+  const seenExact = new Set<string>();
+  const uniqueRows: any[][] = [];
+  const validDriveIds: string[] = [];
+  let dupCount = 0;
+
+  for (const row of dataRows) {
+    const date = (row[0] || '').trim();
+    const time = (row[1] || '').trim();
+    const type = (row[2] || '').trim();
+    const rawAmount = (row[3] || '').replace(/[^\d.-]/g, '');
+    const amount = parseFloat(rawAmount) || 0;
+    const category = (row[4] || '').trim();
+    const account = (row[5] || '').trim();
+    const note = (row[6] || '').trim();
+    const txId = (row[8] || '').trim();
+    const driveFileId = (row[9] || '').trim();
+    const source = (row[10] || '').trim();
+
+    let isDuplicate = false;
+
+    // Check Drive File ID uniqueness
+    if (driveFileId) {
+      if (seenDriveFileIds.has(driveFileId)) {
+        isDuplicate = true;
+      } else {
+        seenDriveFileIds.add(driveFileId);
+      }
+    }
+
+    // Check exact match (date + time + amount + account)
+    const exactKey = `${date}|${time}|${amount}|${account}`;
+    if (!isDuplicate) {
+      if (seenExact.has(exactKey)) {
+        isDuplicate = true;
+      } else {
+        seenExact.add(exactKey);
+      }
+    }
+
+    if (isDuplicate) {
+      dupCount++;
+      continue;
+    }
+
+    let slipVal = row[7] || '-';
+    if (driveFileId && driveFileId.length > 10) {
+      slipVal = `=HYPERLINK("https://drive.google.com/file/d/${driveFileId}/view", "🖼️ ดูสลิป")`;
+      validDriveIds.push(driveFileId);
+    }
+
+    uniqueRows.push([
+      date,
+      time,
+      type,
+      amount,
+      category,
+      account,
+      note,
+      slipVal,
+      txId,
+      driveFileId,
+      source,
+    ]);
+  }
+
+  if (dupCount > 0) {
+    // 1. Clear old data rows A2:K
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `'${TRANSACTIONS_SHEET}'!A2:K`,
+    });
+
+    // 2. Rewrite clean deduplicated rows
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${TRANSACTIONS_SHEET}'!A2:K`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: uniqueRows,
+      },
+    });
+  }
+
+  return {
+    beforeCount: dataRows.length,
+    afterCount: uniqueRows.length,
+    removedCount: dupCount,
+  };
+}
+

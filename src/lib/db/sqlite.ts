@@ -59,6 +59,23 @@ export function isSlipProcessed(driveFileId: string): boolean {
   return Boolean(row);
 }
 
+export function markSlipsProcessedBatch(driveFileIds: string[]) {
+  if (!driveFileIds || driveFileIds.length === 0) return;
+  const db = getDb();
+  const insertStmt = db.prepare(`
+    INSERT OR IGNORE INTO processed_slips (drive_file_id, account, status)
+    VALUES (?, 'SHEET_SYNC', 'SUCCESS')
+  `);
+  const insertMany = db.transaction((ids: string[]) => {
+    for (const id of ids) {
+      if (id && id.trim()) {
+        insertStmt.run(id.trim());
+      }
+    }
+  });
+  insertMany(driveFileIds);
+}
+
 export function markSlipProcessed(data: {
   driveFileId: string;
   account: string;
