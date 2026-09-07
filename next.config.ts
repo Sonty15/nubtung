@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   allowedDevOrigins: [
     'tbt.sonty.cc',
     '*.sonty.cc',
