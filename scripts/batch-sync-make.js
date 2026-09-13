@@ -1,12 +1,20 @@
+const { loadEnvConfig } = require('@next/env');
+loadEnvConfig(process.cwd());
+
 const { google } = require('googleapis');
 const { GoogleGenAI } = require('@google/genai');
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const path = require('path');
 
-// 1. Initialize SQLite
-const dbPath = path.join(process.cwd(), 'data', 'nubtang.db');
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+// 1. Initialize PostgreSQL
+if (!process.env.DATABASE_URL) {
+  console.error('[Batch Sync] DATABASE_URL environment variable is required.');
+  process.exit(1);
+}
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 // 2. Initialize Google Drive & Sheets
 const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -37,9 +45,8 @@ function timeoutPromise(ms, promise, errMsg = 'Operation timed out') {
 }
 
 async function fetchUnprocessedFiles(folderId) {
-  const processedSlips = new Set(
-    db.prepare('SELECT drive_file_id FROM processed_slips').all().map(r => r.drive_file_id)
-  );
+  const resSlips = await pool.query('SELECT drive_file_id FROM processed_slips');
+  const processedSlips = new Set(resSlips.rows.map(r => r.drive_file_id));
 
   const files = [];
   let pageToken = undefined;
@@ -161,10 +168,18 @@ async function run() {
   let failCount = 0;
   const pendingRows = [];
 
-  const markProcessedStmt = db.prepare(`
-    INSERT OR REPLACE INTO processed_slips (drive_file_id, account, amount, transaction_date, status)
-    VALUES (?, ?, ?, ?, ?)
-  `);
+  const markProcessed = async (fileId, account, amount, date, status) => {
+    await pool.query(
+      `INSERT INTO processed_slips (drive_file_id, account, amount, transaction_date, status)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (drive_file_id) DO UPDATE SET
+         account = EXCLUDED.account,
+         amount = EXCLUDED.amount,
+         transaction_date = EXCLUDED.transaction_date,
+         status = EXCLUDED.status`,
+      [fileId, account, amount != null ? amount : null, date || null, status]
+    );
+  };
 
   const startTime = Date.now();
   const totalItems = unprocessed.length;
@@ -206,12 +221,12 @@ async function run() {
             'AUTO_SYNC',
           ]);
 
-          markProcessedStmt.run(file.id, 'Make by KBank', data.amount, data.date, 'SUCCESS');
+          await markProcessed(file.id, 'Make by KBank', data.amount, data.date, 'SUCCESS');
           successCount++;
         } catch (err) {
           failCount++;
           console.error(`[Skip/Retry-later] file ${file.name}: ${err.message}`);
-          markProcessedStmt.run(file.id, 'Make by KBank', 0, '', 'FAILED');
+          await markProcessed(file.id, 'Make by KBank', 0, '', 'FAILED');
         }
       })
     );

@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { UserSession } from '@/types';
-import { getUserByUsername, createUser } from '@/lib/db/sqlite';
+import { getUserByUsername, createUser } from '@/lib/db';
 import crypto from 'crypto';
 
 const SECRET_KEY = new TextEncoder().encode(
@@ -67,9 +67,9 @@ export async function ensureDefaultAdmin() {
   const adminUser = process.env.ADMIN_USERNAME || 'admin';
   const adminPass = process.env.ADMIN_PASSWORD || 'nubtang1234';
 
-  const existing = getUserByUsername(adminUser);
+  const existing = await getUserByUsername(adminUser);
   if (!existing) {
     const hash = await hashPassword(adminPass);
-    createUser(crypto.randomUUID(), adminUser, hash);
+    await createUser(crypto.randomUUID(), adminUser, hash);
   }
 }

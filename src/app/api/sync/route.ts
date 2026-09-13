@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
 import { appendTransactionRows, ensureSheetStructure } from '@/lib/google/sheets';
-import { isSlipProcessed, markSlipProcessed } from '@/lib/db/sqlite';
+import { getProcessedSlipIds, markSlipProcessed } from '@/lib/db';
 import { SyncStats, Transaction } from '@/types';
 
 // Chunk helper for high-speed parallel processing
@@ -51,7 +51,8 @@ export async function POST() {
       console.log(`[Sync] Scanning folder: ${folder.account}...`);
       const files = await listSlipsInFolder(folder.id);
 
-      const unprocessedFiles = files.filter(f => !isSlipProcessed(f.id));
+      const processedIds = await getProcessedSlipIds(files.map(f => f.id));
+      const unprocessedFiles = files.filter(f => !processedIds.has(f.id));
       stats.skipped += (files.length - unprocessedFiles.length);
 
       console.log(`[Sync] ${folder.account}: ${files.length} total, ${unprocessedFiles.length} new to process`);
@@ -70,7 +71,7 @@ export async function POST() {
               // Ignore non-slip images, QR generation screens, or zero-amount items
               if (!slipData.amount || slipData.amount <= 0) {
                 console.log(`[Sync] Ignored non-slip / zero-amount image: ${file.name}`);
-                markSlipProcessed({
+                await markSlipProcessed({
                   driveFileId: file.id,
                   account: folder.account,
                   amount: 0,
@@ -104,7 +105,7 @@ export async function POST() {
 
               chunkTransactions.push(newTx);
 
-              markSlipProcessed({
+              await markSlipProcessed({
                 driveFileId: file.id,
                 account: folder.account,
                 amount: slipData.amount,
@@ -122,7 +123,7 @@ export async function POST() {
             } catch (err: any) {
               stats.failed++;
               console.error(`[Sync] Error on ${file.name}:`, err.message);
-              markSlipProcessed({
+              await markSlipProcessed({
                 driveFileId: file.id,
                 account: folder.account,
                 status: 'FAILED',

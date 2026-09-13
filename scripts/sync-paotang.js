@@ -1,11 +1,19 @@
+const { loadEnvConfig } = require('@next/env');
+loadEnvConfig(process.cwd());
+
 const { google } = require('googleapis');
 const { GoogleGenAI } = require('@google/genai');
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const path = require('path');
 
-const dbPath = path.join(process.cwd(), 'data', 'nubtang.db');
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+if (!process.env.DATABASE_URL) {
+  console.error('[Paotang Sync] DATABASE_URL environment variable is required.');
+  process.exit(1);
+}
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 let key = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
@@ -27,9 +35,8 @@ async function runPaotangSync() {
   const folderId = process.env.GOOGLE_DRIVE_PAOTANG_FOLDER_ID || '1TQH7jGytIhdS05IhFxGuMUj8n1vZAx3g';
   console.log(`[Paotang Sync] 🔍 Scanning folder ${folderId}...`);
 
-  const processedSlips = new Set(
-    db.prepare('SELECT drive_file_id FROM processed_slips').all().map(r => r.drive_file_id)
-  );
+  const resSlips = await pool.query('SELECT drive_file_id FROM processed_slips');
+  const processedSlips = new Set(resSlips.rows.map(r => r.drive_file_id));
 
   const res = await drive.files.list({
     q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
@@ -58,30 +65,37 @@ Special Rules for เป๋าตัง (Paotang / G-Wallet) slips:
    - Set "amount": 0
 
 Extract the following information:
-- isReceiveQrOrRequest: boolean
-- amount: number (pure number)
-- date: "YYYY-MM-DD" (Gregorian)
-- time: "HH:mm:ss"
-- receiverName: string (store/merchant/receiver)
-- suggestedCategory: "อาหารและเครื่องดื่ม" | "ของใช้ในบ้าน/ซูเปอร์" | "การเดินทาง/ค่าน้ำมัน" | "ช้อปปิ้ง" | "สาธารณูปโภค (น้ำ/ไฟ/เน็ต)" | "อื่นๆ"
-- note: string
+- date: formatted as YYYY-MM-DD
+- time: formatted as HH:mm:ss
+- amount: number (e.g. 150.00)
+- receiverName: recipient shop or person name
+- suggestedCategory: one of 'อาหารและเครื่องดื่ม', 'ของใช้ในบ้าน/ซูเปอร์', 'ช้อปปิ้ง', 'การเดินทาง/ค่าน้ำมัน', 'อื่นๆ'
+- note: brief description or purpose
 
-Output strictly JSON:
+Return ONLY a valid JSON object matching this schema:
 {
-  "isReceiveQrOrRequest": boolean,
-  "amount": number,
   "date": "YYYY-MM-DD",
   "time": "HH:mm:ss",
+  "amount": 0.00,
   "receiverName": "string",
   "suggestedCategory": "string",
-  "note": "string"
+  "note": "string",
+  "isReceiveQrOrRequest": false
 }
 `;
 
-  const markProcessedStmt = db.prepare(`
-    INSERT OR REPLACE INTO processed_slips (drive_file_id, account, amount, transaction_date, status)
-    VALUES (?, ?, ?, ?, ?)
-  `);
+  const markProcessed = async (fileId, account, amount, date, status) => {
+    await pool.query(
+      `INSERT INTO processed_slips (drive_file_id, account, amount, transaction_date, status)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (drive_file_id) DO UPDATE SET
+         account = EXCLUDED.account,
+         amount = EXCLUDED.amount,
+         transaction_date = EXCLUDED.transaction_date,
+         status = EXCLUDED.status`,
+      [fileId, account, amount != null ? amount : null, date || null, status]
+    );
+  };
 
   const pendingRows = [];
 
@@ -107,7 +121,7 @@ Output strictly JSON:
 
       if (parsed.isReceiveQrOrRequest || !parsed.amount || Number(parsed.amount) <= 0) {
         console.log(`[Paotang Sync] 🚫 Ignored Receive QR screen / 0 amount: ${file.name}`);
-        markProcessedStmt.run(file.id, 'เป๋าตัง', 0, parsed.date || '', 'IGNORED_ZERO');
+        await markProcessed(file.id, 'เป๋าตัง', 0, parsed.date || '', 'IGNORED_ZERO');
         continue;
       }
 
@@ -133,11 +147,11 @@ Output strictly JSON:
         'AUTO_SYNC',
       ]);
 
-      markProcessedStmt.run(file.id, 'เป๋าตัง', amount, date, 'SUCCESS');
+      await markProcessed(file.id, 'เป๋าตัง', amount, date, 'SUCCESS');
       console.log(`[Paotang Sync] ✅ Processed: ${date} ${time} | ฿${amount} | ${category} | ${note}`);
     } catch (err) {
       console.error(`[Paotang Sync] ❌ Error on ${file.name}:`, err.message);
-      markProcessedStmt.run(file.id, 'เป๋าตัง', 0, '', 'FAILED');
+      await markProcessed(file.id, 'เป๋าตัง', 0, '', 'FAILED');
     }
   }
 

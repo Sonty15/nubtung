@@ -1,7 +1,7 @@
 import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
 import { appendTransactionRows, ensureSheetStructure, getExistingDriveFileIds } from '@/lib/google/sheets';
-import { isSlipProcessed, markSlipProcessed, markSlipsProcessedBatch } from '@/lib/db/sqlite';
+import { markSlipProcessed, markSlipsProcessedBatch, getProcessedSlipIds } from '@/lib/db';
 import { syncStatementsFromDrive } from '@/lib/statement/parser';
 import { Transaction } from '@/types';
 
@@ -22,12 +22,12 @@ export async function executeFullSync() {
 
   await ensureSheetStructure();
 
-  // Auto-hydrate SQLite cache from Google Sheets so fresh pods/restarts never re-process old slips
+  // Auto-hydrate DB cache from Google Sheets so fresh pods/restarts never re-process old slips
   try {
     const sheetDriveIds = await getExistingDriveFileIds();
     if (sheetDriveIds.size > 0) {
-      markSlipsProcessedBatch(Array.from(sheetDriveIds));
-      console.log(`[Auto-Sync] 🛡️ Hydrated SQLite with ${sheetDriveIds.size} existing slips from Google Sheets.`);
+      await markSlipsProcessedBatch(Array.from(sheetDriveIds));
+      console.log(`[Auto-Sync] 🛡️ Hydrated PostgreSQL with ${sheetDriveIds.size} existing slips from Google Sheets.`);
     }
   } catch (err: any) {
     console.error('[Auto-Sync] Warning: Failed to hydrate slip cache from sheets:', err.message);
@@ -54,7 +54,8 @@ export async function executeFullSync() {
   for (const folder of foldersToScan) {
     try {
       const files = await listSlipsInFolder(folder.id);
-      const unprocessed = files.filter(f => !isSlipProcessed(f.id));
+      const processedIds = await getProcessedSlipIds(files.map(f => f.id));
+      const unprocessed = files.filter(f => !processedIds.has(f.id));
       slipsSkipped += (files.length - unprocessed.length);
 
       const chunks = chunkArray(unprocessed, CONCURRENCY);
@@ -71,7 +72,7 @@ export async function executeFullSync() {
               // Ignore non-slip images, QR generation screens, or zero-amount items
               if (!slipData.amount || slipData.amount <= 0) {
                 console.log(`[Auto-Sync] Ignored non-slip / zero-amount image: ${file.name}`);
-                markSlipProcessed({
+                await markSlipProcessed({
                   driveFileId: file.id,
                   account: folder.account,
                   amount: 0,
@@ -105,7 +106,7 @@ export async function executeFullSync() {
 
               chunkTransactions.push(newTx);
 
-              markSlipProcessed({
+              await markSlipProcessed({
                 driveFileId: file.id,
                 account: folder.account,
                 amount: slipData.amount,
@@ -117,7 +118,7 @@ export async function executeFullSync() {
             } catch (err: any) {
               slipsFailed++;
               console.error(`[Auto-Sync] Error on ${file.name}:`, err.message);
-              markSlipProcessed({
+              await markSlipProcessed({
                 driveFileId: file.id,
                 account: folder.account,
                 status: 'FAILED',

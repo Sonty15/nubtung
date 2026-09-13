@@ -149,7 +149,7 @@ function categorizeStatementRow(txDesc: string, rest: string, type: 'EXPENSE' | 
   return 'อื่นๆ';
 }
 
-import { isStatementProcessed, markStatementProcessed } from '@/lib/db/sqlite';
+import { isStatementProcessed, markStatementProcessed } from '@/lib/db';
 
 /**
  * Reconciles and synchronizes statement PDFs from Google Drive with Google Sheets
@@ -183,9 +183,10 @@ export async function syncStatementsFromDrive(forceRefresh = false) {
 
   // Check if all files have already been processed and unchanged (Instant skip)
   if (!forceRefresh) {
-    const hasNewOrUpdatedFiles = files.some(
-      f => !isStatementProcessed(f.id!, f.modifiedTime || undefined)
+    const checks = await Promise.all(
+      files.map(f => isStatementProcessed(f.id!, f.modifiedTime || undefined))
     );
+    const hasNewOrUpdatedFiles = checks.some(processed => !processed);
 
     if (!hasNewOrUpdatedFiles) {
       return {
@@ -353,9 +354,9 @@ export async function syncStatementsFromDrive(forceRefresh = false) {
     },
   });
 
-  // 8. Mark all statement files as processed in SQLite cache
+  // 8. Mark all statement files as processed in database cache
   for (const file of files) {
-    markStatementProcessed({
+    await markStatementProcessed({
       fileId: file.id!,
       fileName: file.name || '',
       modifiedTime: file.modifiedTime || new Date().toISOString(),

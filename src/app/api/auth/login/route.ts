@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUserByUsername } from '@/lib/db/sqlite';
+import { getUserByUsername } from '@/lib/db';
 import { verifyPassword, setSessionCookie, ensureDefaultAdmin } from '@/lib/auth/session';
 
 export async function POST(req: Request) {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = getUserByUsername(username);
+    const user = await getUserByUsername(username);
     if (!user) {
       return NextResponse.json(
         { error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' },

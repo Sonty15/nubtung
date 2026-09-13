@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { appendTransactionRow, ensureSheetStructure } from '@/lib/google/sheets';
-import { getDb } from '@/lib/db/sqlite';
+import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
 
 export async function POST(req: Request) {
@@ -87,14 +87,9 @@ export async function POST(req: Request) {
     }
 
     // 4. Deduplicate Transfers (KBank Live sends 2 notifications for 1 transfer: 1 out from KBank and 1 in to Make)
-    const db = getDb();
     if (type === 'TRANSFER') {
-      const recentTransfer = db.prepare(`
-        SELECT drive_file_id FROM processed_slips 
-        WHERE amount = ? AND status = 'TRANSFER_SUCCESS' AND created_at >= datetime('now', '-3 minutes')
-      `).get(amount);
-
-      if (recentTransfer) {
+      const isDuplicate = await checkRecentTransferDuplicate(amount, 3);
+      if (isDuplicate) {
         return NextResponse.json({
           success: true,
           message: `รายการโอนย้ายเงิน ฿${amount} ถูกบันทึกไปแล้วจากแจ้งเตือนแรก (ข้ามการบันทึกซ้ำอัตโนมัติ)`,
@@ -142,12 +137,9 @@ export async function POST(req: Request) {
     await ensureSheetStructure();
     await appendTransactionRow(newTx);
 
-    // Record in SQLite cache for deduplication
+    // Record in DB cache for deduplication
     if (type === 'TRANSFER') {
-      db.prepare(`
-        INSERT INTO processed_slips (drive_file_id, account, amount, transaction_date, status)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(txId, account, amount, dateStr, 'TRANSFER_SUCCESS');
+      await recordTransferSlip(txId, account, amount, dateStr);
     }
 
     return NextResponse.json({

@@ -1,7 +1,7 @@
 import { messagingApi } from '@line/bot-sdk';
 import { appendTransactionRow, getAllTransactions, ensureSheetStructure } from '@/lib/google/sheets';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
-import { getDb } from '@/lib/db/sqlite';
+import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
 
 export function getLineClient() {
@@ -106,13 +106,8 @@ async function handleTextMessage(replyToken: string, text: string) {
 
       // Deduplicate transfer if 2nd notification
       if (type === 'TRANSFER') {
-        const db = getDb();
-        const recentTransfer = db.prepare(`
-          SELECT drive_file_id FROM processed_slips 
-          WHERE amount = ? AND status = 'TRANSFER_SUCCESS' AND created_at >= datetime('now', '-3 minutes')
-        `).get(amount);
-
-        if (recentTransfer) {
+        const isDuplicate = await checkRecentTransferDuplicate(amount, 3);
+        if (isDuplicate) {
           await client.replyMessage({
             replyToken,
             messages: [{
@@ -158,11 +153,7 @@ async function handleTextMessage(replyToken: string, text: string) {
       await appendTransactionRow(newTx);
 
       if (type === 'TRANSFER') {
-        const db = getDb();
-        db.prepare(`
-          INSERT INTO processed_slips (drive_file_id, account, amount, transaction_date, status)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(txId, account, amount, dateStr, 'TRANSFER_SUCCESS');
+        await recordTransferSlip(txId, account, amount, dateStr);
       }
 
       const emoji = type === 'INCOME' ? '🟢' : type === 'TRANSFER' ? '🔄' : '🔴';
