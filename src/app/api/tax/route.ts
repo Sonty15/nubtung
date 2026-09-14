@@ -4,18 +4,20 @@ import { calculateTax, defaultDeductions, defaultIncome } from '@/lib/tax/tax-en
 import { aggregateTransactionsToIncome } from '@/lib/tax/category-mapping';
 import { TaxDeductions, IncomeBySection } from '@/lib/tax/tax-types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const yearParam = searchParams.get('year');
-    const year = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
+    const parsedYear = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
+    const year = isNaN(parsedYear) ? new Date().getFullYear() : parsedYear;
 
     // 1. Fetch transactions for the year from Google Sheets
     const transactions = await getTransactions();
     const yearTransactions = transactions.filter((tx) => {
       if (!tx.date) return false;
-      const txYear = new Date(tx.date).getFullYear();
-      return txYear === year;
+      return tx.date.startsWith(String(year));
     });
 
     const syncedIncome = aggregateTransactionsToIncome(yearTransactions);
