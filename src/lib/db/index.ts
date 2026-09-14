@@ -1,4 +1,6 @@
-import { Pool, QueryResult, QueryResultRow } from 'pg';
+import { Pool, type QueryResult, type QueryResultRow } from 'pg';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { initMortgageSchema } from './mortgage.ts';
 
 let poolInstance: Pool | null = null;
 
@@ -62,6 +64,8 @@ export async function initSchema(): Promise<void> {
       processed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  await initMortgageSchema();
 }
 
 export async function isSlipProcessed(driveFileId: string): Promise<boolean> {
@@ -227,3 +231,7 @@ export async function createUser(
     [id, username, passwordHash]
   );
 }
+
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+export * from './mortgage.ts';
+
