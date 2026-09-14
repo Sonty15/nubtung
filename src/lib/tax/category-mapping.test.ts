@@ -39,7 +39,13 @@ describe('Category to Tax Mapping', () => {
   it('maps rental keywords to section 40(5)', () => {
     assert.strictEqual(mapCategoryToSection('ค่าเช่า'), 'section40_5');
     assert.strictEqual(mapCategoryToSection('Rent'), 'section40_5');
+    assert.strictEqual(mapCategoryToSection('House Rent'), 'section40_5');
     assert.strictEqual(mapCategoryToSection('เช่าบ้าน'), 'section40_5');
+  });
+
+  it('does not map words containing rent as substring like parent to section 40(5)', () => {
+    assert.strictEqual(mapCategoryToSection('parent'), 'section40_8');
+    assert.strictEqual(mapCategoryToSection('parent support'), 'section40_8');
   });
 
   it('maps liberal profession keywords to section 40(6)', () => {

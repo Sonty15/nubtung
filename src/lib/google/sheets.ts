@@ -747,10 +747,16 @@ export function rowToTaxProfile(row: any[], fallbackYear?: number): SavedTaxProf
   };
 }
 
+let taxSheetVerified = false;
+
 /**
  * Ensures the '📑 ข้อมูลภาษี' tab exists in Google Sheets with appropriate headers.
  */
 export async function ensureTaxSheetExists(): Promise<void> {
+  if (taxSheetVerified) {
+    return;
+  }
+
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
 
@@ -790,6 +796,8 @@ export async function ensureTaxSheetExists(): Promise<void> {
       },
     });
   }
+
+  taxSheetVerified = true;
 }
 
 /**

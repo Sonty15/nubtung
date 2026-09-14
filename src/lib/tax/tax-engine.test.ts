@@ -110,23 +110,43 @@ describe('Tax Engine - Thai Personal Income Tax Calculation', () => {
     assert.strictEqual(result.taxBrackets[7].isCurrentTier, true);
   });
 
-  it('tests donation cap calculation (10% of remaining income after deductions) and double donation', () => {
-    // Income: 1,000,000 (40_1) -> Expense 100,000 -> After expense 900,000
+  it('tests sequential donation cap (double donation first up to 10%, then general donation up to 10% of remainder)', () => {
+    // Income: 960,000 (40_1) -> Expense 100,000 -> After expense 860,000
     // Deductions before donation: 60,000 (personal)
-    // Remaining before donation = 900,000 - 60,000 = 840,000
-    // Max donation = 84,000 (10% of 840,000)
-    // doubleDonation = 30,000 (x2 = 60,000), generalDonation = 30,000 -> Total claimed = 90,000
-    // Capped at 84,000
-    const income = { ...defaultIncome, section40_1: 1000000 };
+    // Remaining before donation = 860,000 - 60,000 = 800,000
+    // 1. Double donation: input 50,000 x 2 = 100,000 claimed.
+    //    Cap = 10% of 800,000 = 80,000. Deducted = 80,000.
+    // 2. Remaining for general donation = 800,000 - 80,000 = 720,000.
+    //    General donation cap = 10% of 720,000 = 72,000.
+    //    General donation input: 80,000 claimed -> Capped at 72,000.
+    // Total donations deducted = 80,000 + 72,000 = 152,000.
+    const income = { ...defaultIncome, section40_1: 960000 };
     const deductions = {
       ...defaultDeductions,
-      doubleDonation: 30000,
-      generalDonation: 30000,
+      doubleDonation: 50000,
+      generalDonation: 80000,
     };
     const result = calculateTax(income, deductions, 0);
-    assert.strictEqual(result.deductionsBreakdown.donations, 84000);
-    assert.strictEqual(result.totalDeductions, 144000); // 60k + 84k
-    assert.strictEqual(result.netTaxableIncome, 756000); // 900k - 144k
+    assert.strictEqual(result.deductionsBreakdown.donations, 152000);
+    assert.strictEqual(result.totalDeductions, 212000); // 60k personal + 152k donations
+    assert.strictEqual(result.netTaxableIncome, 648000); // 860k - 212k
+  });
+
+  it('clamps negative inputs and counts to non-negative values', () => {
+    const income = { ...defaultIncome, section40_1: 500000 };
+    const deductions = {
+      ...defaultDeductions,
+      childCount: -2,
+      parentCount: -1,
+      socialSecurity: -5000,
+      lifeInsurance: -10000,
+      doubleDonation: -2000,
+    };
+    const result = calculateTax(income, deductions, -1000);
+    assert.strictEqual(result.deductionsBreakdown.personalFamily, 60000); // Only personal 60k
+    assert.strictEqual(result.deductionsBreakdown.insuranceSavings, 0);
+    assert.strictEqual(result.deductionsBreakdown.donations, 0);
+    assert.strictEqual(result.withholdingTax, 0);
   });
 
   it('tests health insurance and life insurance combined cap at 100,000', () => {

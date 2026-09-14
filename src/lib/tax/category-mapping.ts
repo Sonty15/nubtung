@@ -46,7 +46,7 @@ export function mapCategoryToSection(categoryName: string): keyof IncomeBySectio
   }
 
   // 40(5) Rent
-  if (norm.includes('ค่าเช่า') || norm.includes('rent') || norm.includes('เช่าบ้าน')) {
+  if (norm.includes('ค่าเช่า') || /\brent\b/i.test(norm) || norm.includes('เช่าบ้าน')) {
     return 'section40_5';
   }
 

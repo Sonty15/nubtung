@@ -58,35 +58,47 @@ export function calculateTax(
   deductions: TaxDeductions,
   withholdingTax: number = 0
 ): TaxCalculationResult {
+  const safeIncome: IncomeBySection = {
+    section40_1: Math.max(0, income.section40_1 || 0),
+    section40_2: Math.max(0, income.section40_2 || 0),
+    section40_3: Math.max(0, income.section40_3 || 0),
+    section40_4: Math.max(0, income.section40_4 || 0),
+    section40_5: Math.max(0, income.section40_5 || 0),
+    section40_6: Math.max(0, income.section40_6 || 0),
+    section40_7: Math.max(0, income.section40_7 || 0),
+    section40_8: Math.max(0, income.section40_8 || 0),
+  };
+  const safeWithholdingTax = Math.max(0, withholdingTax || 0);
+
   const totalIncome =
-    (income.section40_1 || 0) +
-    (income.section40_2 || 0) +
-    (income.section40_3 || 0) +
-    (income.section40_4 || 0) +
-    (income.section40_5 || 0) +
-    (income.section40_6 || 0) +
-    (income.section40_7 || 0) +
-    (income.section40_8 || 0);
+    safeIncome.section40_1 +
+    safeIncome.section40_2 +
+    safeIncome.section40_3 +
+    safeIncome.section40_4 +
+    safeIncome.section40_5 +
+    safeIncome.section40_6 +
+    safeIncome.section40_7 +
+    safeIncome.section40_8;
 
   // 1. Calculate Deductible Expenses
   // 40(1) + 40(2) 50% combined max 100k
-  const s40_1_2 = (income.section40_1 || 0) + (income.section40_2 || 0);
+  const s40_1_2 = safeIncome.section40_1 + safeIncome.section40_2;
   const exp40_1_2 = Math.min(s40_1_2 * 0.5, 100000);
-  const exp40_1 = s40_1_2 > 0 ? (exp40_1_2 * (income.section40_1 || 0)) / s40_1_2 : 0;
-  const exp40_2 = s40_1_2 > 0 ? (exp40_1_2 * (income.section40_2 || 0)) / s40_1_2 : 0;
+  const exp40_1 = s40_1_2 > 0 ? (exp40_1_2 * safeIncome.section40_1) / s40_1_2 : 0;
+  const exp40_2 = s40_1_2 > 0 ? (exp40_1_2 * safeIncome.section40_2) / s40_1_2 : 0;
 
   // 40(3) 50% max 100k
-  const exp40_3 = Math.min((income.section40_3 || 0) * 0.5, 100000);
+  const exp40_3 = Math.min(safeIncome.section40_3 * 0.5, 100000);
   // 40(4) 0%
   const exp40_4 = 0;
   // 40(5) Flat 30%
-  const exp40_5 = (income.section40_5 || 0) * 0.3;
+  const exp40_5 = safeIncome.section40_5 * 0.3;
   // 40(6) Flat 30%
-  const exp40_6 = (income.section40_6 || 0) * 0.3;
+  const exp40_6 = safeIncome.section40_6 * 0.3;
   // 40(7) Flat 60%
-  const exp40_7 = (income.section40_7 || 0) * 0.6;
+  const exp40_7 = safeIncome.section40_7 * 0.6;
   // 40(8) Flat 60%
-  const exp40_8 = (income.section40_8 || 0) * 0.6;
+  const exp40_8 = safeIncome.section40_8 * 0.6;
 
   const totalDeductibleExpenses =
     exp40_1_2 + exp40_3 + exp40_4 + exp40_5 + exp40_6 + exp40_7 + exp40_8;
@@ -97,40 +109,40 @@ export function calculateTax(
   // Group 1: Personal & Family
   const personal = 60000;
   const spouse = deductions.spouse ? 60000 : 0;
-  const child = (deductions.childCount || 0) * 30000;
-  const child2018 = (deductions.child2018Count || 0) * 60000;
-  const parent = Math.min(deductions.parentCount || 0, 4) * 30000;
-  const disabled = (deductions.disabledCount || 0) * 60000;
+  const child = Math.max(0, Math.floor(deductions.childCount || 0)) * 30000;
+  const child2018 = Math.max(0, Math.floor(deductions.child2018Count || 0)) * 60000;
+  const parent = Math.min(Math.max(0, Math.floor(deductions.parentCount || 0)), 4) * 30000;
+  const disabled = Math.max(0, Math.floor(deductions.disabledCount || 0)) * 60000;
   const personalFamily = personal + spouse + child + child2018 + parent + disabled;
 
   // Group 2: Insurance & Savings
-  const socialSecurity = Math.min(deductions.socialSecurity || 0, 9000);
-  const healthInsurance = Math.min(deductions.healthInsurance || 0, 25000);
+  const socialSecurity = Math.min(Math.max(0, deductions.socialSecurity || 0), 9000);
+  const healthInsurance = Math.min(Math.max(0, deductions.healthInsurance || 0), 25000);
   const lifeAndHealth = Math.min(
-    (deductions.lifeInsurance || 0) + healthInsurance,
+    Math.max(0, deductions.lifeInsurance || 0) + healthInsurance,
     100000
   );
-  const parentHealthInsurance = Math.min(deductions.parentHealthInsurance || 0, 15000);
+  const parentHealthInsurance = Math.min(Math.max(0, deductions.parentHealthInsurance || 0), 15000);
   const insuranceSavings = socialSecurity + lifeAndHealth + parentHealthInsurance;
 
   // Group 3: Retirement Funds (Cap 500,000)
   const rmfCapped = Math.min(
-    deductions.rmf || 0,
+    Math.max(0, deductions.rmf || 0),
     totalIncome * 0.3,
     500000
   );
   const ssfCapped = Math.min(
-    deductions.ssf || 0,
+    Math.max(0, deductions.ssf || 0),
     totalIncome * 0.3,
     200000
   );
   const pvdCapped = Math.min(
-    deductions.pvd || 0,
+    Math.max(0, deductions.pvd || 0),
     totalIncome * 0.15,
     500000
   );
   const pensionCapped = Math.min(
-    deductions.pensionInsurance || 0,
+    Math.max(0, deductions.pensionInsurance || 0),
     totalIncome * 0.15,
     200000
   );
@@ -141,14 +153,14 @@ export function calculateTax(
 
   // ThaiESG (Cap 300,000, 30% of income, independent of retirement 500k)
   const thaiEsg = Math.min(
-    deductions.thaiEsg || 0,
+    Math.max(0, deductions.thaiEsg || 0),
     totalIncome * 0.3,
     300000
   );
 
   // Group 4: Property & Economy
-  const homeLoanInterest = Math.min(deductions.homeLoanInterest || 0, 100000);
-  const easyEReceipt = deductions.easyEReceipt || 0;
+  const homeLoanInterest = Math.min(Math.max(0, deductions.homeLoanInterest || 0), 100000);
+  const easyEReceipt = Math.max(0, deductions.easyEReceipt || 0);
   const propertyEconomy = homeLoanInterest + easyEReceipt;
 
   // Deductions before donations
@@ -161,12 +173,25 @@ export function calculateTax(
     incomeAfterExpenses - deductionsBeforeDonation
   );
 
-  // Group 5: Donations (Max 10% of remaining income)
-  const maxDonationAllowed = remainingBeforeDonation * 0.1;
-  const doubleDonationClaimed = (deductions.doubleDonation || 0) * 2;
-  const generalDonationClaimed = deductions.generalDonation || 0;
-  const totalDonationClaimed = doubleDonationClaimed + generalDonationClaimed;
-  const donations = Math.min(totalDonationClaimed, maxDonationAllowed);
+  // Group 5: Donations (Sequential capping)
+  // Double donation is deducted first up to 10% of remainingBeforeDonation
+  const doubleDonationClaimed = Math.max(0, deductions.doubleDonation || 0) * 2;
+  const maxDoubleDonationAllowed = remainingBeforeDonation * 0.1;
+  const doubleDonationDeducted = Math.min(doubleDonationClaimed, maxDoubleDonationAllowed);
+
+  // General donation is then deducted up to 10% of (remainingBeforeDonation - doubleDonationDeducted)
+  const generalDonationClaimed = Math.max(0, deductions.generalDonation || 0);
+  const remainingForGeneralDonation = Math.max(
+    0,
+    remainingBeforeDonation - doubleDonationDeducted
+  );
+  const maxGeneralDonationAllowed = remainingForGeneralDonation * 0.1;
+  const generalDonationDeducted = Math.min(
+    generalDonationClaimed,
+    maxGeneralDonationAllowed
+  );
+
+  const donations = doubleDonationDeducted + generalDonationDeducted;
 
   const totalDeductions = deductionsBeforeDonation + donations;
   const netTaxableIncome = Math.max(0, incomeAfterExpenses - totalDeductions);
@@ -207,7 +232,7 @@ export function calculateTax(
   });
 
   // 4. Flat Tax 0.5% (for non-40(1) >= 120k)
-  const nonSalaryIncome = totalIncome - (income.section40_1 || 0);
+  const nonSalaryIncome = totalIncome - safeIncome.section40_1;
   let flatTax05 = 0;
   let flatTax05Applicable = false;
 
@@ -229,13 +254,13 @@ export function calculateTax(
   }
 
   // 6. Net Tax Payable / Refund
-  const netTaxPayable = finalTax - (withholdingTax || 0);
+  const netTaxPayable = finalTax - safeWithholdingTax;
   const isRefund = netTaxPayable < 0;
   const effectiveTaxRate = totalIncome > 0 ? (finalTax / totalIncome) * 100 : 0;
 
   return {
     totalIncome,
-    incomeBySection: income,
+    incomeBySection: safeIncome,
     expensesBySection: {
       section40_1: exp40_1,
       section40_2: exp40_2,
@@ -265,7 +290,7 @@ export function calculateTax(
     flatTax05Applicable,
     finalTax,
     taxMethodUsed,
-    withholdingTax: withholdingTax || 0,
+    withholdingTax: safeWithholdingTax,
     netTaxPayable,
     isRefund,
     effectiveTaxRate,

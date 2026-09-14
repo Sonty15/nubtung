@@ -93,12 +93,27 @@ export default function TaxPage() {
       setError(null);
       try {
         const res = await fetch(`/api/tax?year=${selectedYear}`);
-        const data = await res.json();
+        let data: {
+          success?: boolean;
+          error?: string;
+          syncedIncome?: IncomeBySection;
+          savedProfile?: {
+            income?: IncomeBySection;
+            deductions?: TaxDeductions;
+            withholdingTax?: number;
+          };
+        } | null = null;
+
+        try {
+          data = await res.json();
+        } catch {
+          // Response was not JSON (e.g. HTML 500/502 page)
+        }
 
         if (ignore) return;
 
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'ไม่สามารถดึงข้อมูลภาษีได้');
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || `ไม่สามารถดึงข้อมูลภาษีได้ (HTTP ${res.status})`);
         }
 
         const fetchedSynced: IncomeBySection = data.syncedIncome || defaultIncome;
@@ -141,10 +156,20 @@ export default function TaxPage() {
 
     try {
       const res = await fetch(`/api/tax?year=${selectedYear}`);
-      const data = await res.json();
+      let data: {
+        success?: boolean;
+        error?: string;
+        syncedIncome?: IncomeBySection;
+      } | null = null;
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'ไม่สามารถซิงค์ข้อมูลภาษีได้');
+      try {
+        data = await res.json();
+      } catch {
+        // Non-JSON response
+      }
+
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `ไม่สามารถซิงค์ข้อมูลภาษีได้ (HTTP ${res.status})`);
       }
 
       const fetchedSynced: IncomeBySection = data.syncedIncome || defaultIncome;
@@ -185,9 +210,17 @@ export default function TaxPage() {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'ไม่สามารถบันทึกข้อมูลภาษีลง Google Sheet ได้');
+      let data: { success?: boolean; error?: string } | null = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Non-JSON response
+      }
+
+      if (!res.ok || !data?.success) {
+        throw new Error(
+          data?.error || `ไม่สามารถบันทึกข้อมูลภาษีลง Google Sheet ได้ (HTTP ${res.status})`
+        );
       }
 
       showNotification(
@@ -223,7 +256,7 @@ export default function TaxPage() {
   };
 
   const handleYearChange = (year: number) => {
-    if (year === selectedYear) return;
+    if (saving || year === selectedYear) return;
     setLoading(true);
     setSelectedYear(year);
   };
@@ -295,8 +328,9 @@ export default function TaxPage() {
                   <button
                     key={yr}
                     type="button"
+                    disabled={saving}
                     onClick={() => handleYearChange(yr)}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       isSelected
                         ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
