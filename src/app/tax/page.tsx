@@ -523,6 +523,7 @@ export default function TaxPage() {
           result={result}
           withholdingTax={withholdingTax}
           onWithholdingChange={setWithholdingTax}
+          year={selectedYear}
         />
 
         {/* 4. Progressive Tax Bracket Table */}
