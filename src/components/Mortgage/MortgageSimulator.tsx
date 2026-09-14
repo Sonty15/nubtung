@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Calculator, Sparkles, Clock, Coins, ArrowRight, Zap, TrendingDown } from 'lucide-react';
 import { compareExtraPayment } from '@/lib/mortgage/simulator';
-import { DEFAULT_INTEREST_CONFIG } from '@/lib/db/mortgage';
+import { DEFAULT_INTEREST_CONFIG } from '@/lib/mortgage/types';
 import type { InterestConfig } from '@/lib/mortgage/types';
 
 interface MortgageSimulatorProps {

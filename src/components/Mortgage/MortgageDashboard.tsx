@@ -16,8 +16,8 @@ import MortgageCharts from './MortgageCharts';
 import MortgageSimulator from './MortgageSimulator';
 import MortgageHistoryTable from './MortgageHistoryTable';
 import ManualPaymentModal from './ManualPaymentModal';
+import { DEFAULT_INTEREST_CONFIG } from '@/lib/mortgage/types';
 import type { MortgageSummary, MortgagePayment } from '@/lib/mortgage/types';
-import { DEFAULT_INTEREST_CONFIG } from '@/lib/db/mortgage';
 
 type AccountTab = 'ALL' | '011690010474' | '011690010482';
 
@@ -247,6 +247,7 @@ export default function MortgageDashboard() {
 
       {/* 3. Interactive Extra Payment Simulator */}
       <MortgageSimulator
+        key={selectedTab}
         currentBalance={simulatorBalance}
         interestConfig={simulatorConfig}
         accountName={simulatorName}

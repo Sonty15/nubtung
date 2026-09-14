@@ -11,6 +11,16 @@ export interface InterestConfig {
   tiers: InterestTier[];
 }
 
+export const DEFAULT_INTEREST_CONFIG: InterestConfig = {
+  mrr: 6.145,
+  tiers: [
+    { startMonth: 1, endMonth: 12, rateType: 'FIXED', rateValue: 2.20, label: 'ปีที่ 1 (2.20% คงที่)' },
+    { startMonth: 13, endMonth: 24, rateType: 'FIXED', rateValue: 3.25, label: 'ปีที่ 2 (3.25% คงที่)' },
+    { startMonth: 25, endMonth: 36, rateType: 'MRR_OFFSET', rateValue: -2.895, label: 'ปีที่ 3 (MRR - 2.895%)' },
+    { startMonth: 37, endMonth: 480, rateType: 'MRR_OFFSET', rateValue: -0.50, label: 'ปีที่ 4 เป็นต้นไป (MRR - 0.50%)' },
+  ],
+};
+
 export interface MortgageAccount {
   id: string;
   accountNumber: string;

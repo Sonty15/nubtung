@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Wallet, LayoutDashboard, ListOrdered, Calculator, LogOut } from 'lucide-react';
+import { Wallet, LayoutDashboard, ListOrdered, Calculator, Home, LogOut } from 'lucide-react';
 import SyncButton from './SyncButton';
 import ThemeToggle from './ThemeToggle';
 
@@ -20,6 +20,7 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
     { label: 'ภาพรวม (Dashboard)', href: '/', icon: LayoutDashboard },
     { label: 'รายการทั้งหมด (Transactions)', href: '/transactions', icon: ListOrdered },
     { label: 'คำนวณภาษี (Tax)', href: '/tax', icon: Calculator },
+    { label: 'ผ่อนบ้าน (Mortgage)', href: '/mortgage', icon: Home },
   ];
 
   return (
