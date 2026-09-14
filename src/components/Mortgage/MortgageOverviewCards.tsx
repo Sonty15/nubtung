@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Shield, TrendingDown, Percent, Receipt, Coins, ArrowUpRight } from 'lucide-react';
+import { Home, TrendingDown, Receipt, Coins } from 'lucide-react';
 import type { MortgageSummary } from '@/lib/mortgage/types';
 
 interface MortgageOverviewCardsProps {

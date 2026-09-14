@@ -46,8 +46,12 @@ interface MonthlyAggregatedData {
   totalPaid: number;
   remainingBalance: number;
 }
+interface MortgageTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: MonthlyAggregatedData }>;
+}
 
-const MortgageCustomTooltip = ({ active, payload, label }: any) => {
+const MortgageCustomTooltip = ({ active, payload }: MortgageTooltipProps) => {
   if (active && payload && payload.length) {
     const data: MonthlyAggregatedData = payload[0]?.payload;
     if (!data) return null;

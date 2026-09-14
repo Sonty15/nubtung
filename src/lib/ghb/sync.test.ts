@@ -61,6 +61,23 @@ describe('GHB Receipt Parser', () => {
     assert.strictEqual(result.remainingBalance, undefined);
   });
 
+  it('parses receipt with zero remaining balance correctly', () => {
+    const sampleText = `
+      ธนาคารอาคารสงเคราะห์
+      ใบเสร็จรับเงินอิเล็กทรอนิกส์
+      เลขที่บัญชี 011690010474
+      วันที่ 25 ธันวาคม 2569
+      จำนวนเงินที่ชำระ 5,000.00 บาท
+      ค่าประกันอัคคีภัย   ดอกเบี้ย   เงินต้น
+      0.00   0.00   5,000.00
+      เงินต้นคงเหลือ 0.00 บาท
+    `;
+    const result = parseGhbReceiptText(sampleText);
+    assert.ok(result);
+    assert.strictEqual(result.accountNo, '011690010474');
+    assert.strictEqual(result.remainingBalance, 0);
+  });
+
   it('returns null for non-GHB text', () => {
     const sampleText = 'Some random bank statement without GHB header';
     const result = parseGhbReceiptText(sampleText);

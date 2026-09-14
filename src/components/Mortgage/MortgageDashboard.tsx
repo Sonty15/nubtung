@@ -9,7 +9,6 @@ import {
   AlertCircle,
   CheckCircle,
   Layers,
-  Sparkles,
 } from 'lucide-react';
 import MortgageOverviewCards from './MortgageOverviewCards';
 import MortgageCharts from './MortgageCharts';
@@ -38,7 +37,6 @@ export default function MortgageDashboard() {
   // Fetch mortgage data from API
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await fetch('/api/mortgage');
       const data = await res.json();
 
@@ -48,7 +46,7 @@ export default function MortgageDashboard() {
       } else {
         throw new Error(data.error || 'Failed to fetch mortgage summary');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching mortgage data:', err);
     } finally {
       setLoading(false);
@@ -56,8 +54,27 @@ export default function MortgageDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let ignore = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/mortgage');
+        const data = await res.json();
+        if (!ignore && data.success) {
+          setSummary(data.summary);
+          setPayments(data.payments || []);
+        }
+      } catch (err: unknown) {
+        console.error('Error fetching mortgage data:', err);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Handle GH Bank Email Sync
   const handleSync = async () => {
@@ -86,10 +103,10 @@ export default function MortgageDashboard() {
       }
 
       await fetchData();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setToast({
         type: 'error',
-        message: err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่ออีเมล ธอส.',
+        message: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการเชื่อมต่ออีเมล ธอส.',
       });
     } finally {
       setSyncing(false);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, Sparkles, Clock, Coins, ArrowRight, Zap, TrendingDown } from 'lucide-react';
+import { Calculator, Sparkles, Clock, Coins, Zap } from 'lucide-react';
 import { compareExtraPayment } from '@/lib/mortgage/simulator';
 import { DEFAULT_INTEREST_CONFIG } from '@/lib/mortgage/types';
 import type { InterestConfig } from '@/lib/mortgage/types';
@@ -35,7 +35,7 @@ export default function MortgageSimulator({
     });
   }, [principal, basePayment, extraPayment, interestConfig]);
 
-  const { standard, withExtra, monthsSaved, yearsSaved, interestSaved } = comparison;
+  const { standard, withExtra, monthsSaved, interestSaved } = comparison;
 
   const stdYears = Math.floor(standard.totalMonths / 12);
   const stdMonths = standard.totalMonths % 12;

@@ -43,59 +43,61 @@ export function calculateRemainingBalanceFromHistory(
   return Math.max(0, Math.round((loanAmount - totalPrincipal) * 100) / 100);
 }
 
+let schemaInitPromise: Promise<void> | null = null;
+
 export async function initMortgageSchema(): Promise<void> {
-  await query(`
-    CREATE TABLE IF NOT EXISTS mortgage_accounts (
-      id VARCHAR(50) PRIMARY KEY,
-      account_number VARCHAR(100) UNIQUE NOT NULL,
-      name VARCHAR(255) NOT NULL,
-      loan_amount NUMERIC(15, 2) NOT NULL,
-      contract_date DATE NOT NULL,
-      term_months INTEGER NOT NULL,
-      interest_config JSONB NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    );
+  if (!schemaInitPromise) {
+    schemaInitPromise = (async () => {
+      await query(`
+        CREATE TABLE IF NOT EXISTS mortgage_accounts (
+          id VARCHAR(50) PRIMARY KEY,
+          account_number VARCHAR(100) UNIQUE NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          loan_amount NUMERIC(15, 2) NOT NULL,
+          contract_date DATE NOT NULL,
+          term_months INTEGER NOT NULL,
+          interest_config JSONB NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
 
-    CREATE TABLE IF NOT EXISTS mortgage_payments (
-      id SERIAL PRIMARY KEY,
-      account_id VARCHAR(50) NOT NULL REFERENCES mortgage_accounts(id) ON DELETE CASCADE,
-      payment_date DATE NOT NULL,
-      installment_no INTEGER,
-      total_paid NUMERIC(15, 2) NOT NULL,
-      principal NUMERIC(15, 2) NOT NULL,
-      interest NUMERIC(15, 2) NOT NULL,
-      fee NUMERIC(15, 2) DEFAULT 0,
-      remaining_balance NUMERIC(15, 2) NOT NULL,
-      receipt_uid VARCHAR(100),
-      source VARCHAR(50) DEFAULT 'EMAIL_SYNC',
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT uq_mortgage_account_payment UNIQUE (account_id, payment_date, total_paid)
-    );
+        CREATE TABLE IF NOT EXISTS mortgage_payments (
+          id SERIAL PRIMARY KEY,
+          account_id VARCHAR(50) NOT NULL REFERENCES mortgage_accounts(id) ON DELETE CASCADE,
+          payment_date DATE NOT NULL,
+          installment_no INTEGER,
+          total_paid NUMERIC(15, 2) NOT NULL,
+          principal NUMERIC(15, 2) NOT NULL,
+          interest NUMERIC(15, 2) NOT NULL,
+          fee NUMERIC(15, 2) DEFAULT 0,
+          remaining_balance NUMERIC(15, 2) NOT NULL,
+          receipt_uid VARCHAR(100),
+          source VARCHAR(50) DEFAULT 'EMAIL_SYNC',
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT uq_mortgage_account_payment UNIQUE (account_id, payment_date, total_paid)
+        );
 
-    CREATE INDEX IF NOT EXISTS idx_mortgage_payments_account ON mortgage_payments(account_id);
-    CREATE INDEX IF NOT EXISTS idx_mortgage_payments_date ON mortgage_payments(payment_date DESC);
-  `);
+        CREATE INDEX IF NOT EXISTS idx_mortgage_payments_account ON mortgage_payments(account_id);
+        CREATE INDEX IF NOT EXISTS idx_mortgage_payments_date ON mortgage_payments(payment_date DESC);
+      `);
 
-  // Pre-seed accounts if not exists
-  for (const acc of INITIAL_MORTGAGE_ACCOUNTS) {
-    await query(
-      `INSERT INTO mortgage_accounts (id, account_number, name, loan_amount, contract_date, term_months, interest_config)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (id) DO UPDATE SET
-         name = EXCLUDED.name,
-         loan_amount = EXCLUDED.loan_amount,
-         term_months = EXCLUDED.term_months,
-         interest_config = EXCLUDED.interest_config,
-         updated_at = CURRENT_TIMESTAMP`,
-      [acc.id, acc.accountNumber, acc.name, acc.loanAmount, acc.contractDate, acc.termMonths, JSON.stringify(acc.interestConfig)]
-    );
+      // Pre-seed accounts if not exists
+      for (const acc of INITIAL_MORTGAGE_ACCOUNTS) {
+        await query(
+          `INSERT INTO mortgage_accounts (id, account_number, name, loan_amount, contract_date, term_months, interest_config)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO NOTHING`,
+          [acc.id, acc.accountNumber, acc.name, acc.loanAmount, acc.contractDate, acc.termMonths, JSON.stringify(acc.interestConfig)]
+        );
+      }
+    })();
   }
+  return schemaInitPromise;
 }
 
 export async function getMortgageAccounts(): Promise<MortgageAccount[]> {
   await initMortgageSchema();
-  const res = await query<any>(
+  const res = await query<MortgageAccount>(
     'SELECT id, account_number as "accountNumber", name, loan_amount::float as "loanAmount", contract_date::text as "contractDate", term_months as "termMonths", interest_config as "interestConfig", created_at as "createdAt" FROM mortgage_accounts ORDER BY id ASC'
   );
   return res.rows;
@@ -107,13 +109,13 @@ export async function getMortgagePayments(accountId?: string): Promise<MortgageP
     ? 'SELECT id, account_id as "accountId", payment_date::text as "paymentDate", installment_no as "installmentNo", total_paid::float as "totalPaid", principal::float as "principal", interest::float as "interest", fee::float as "fee", remaining_balance::float as "remainingBalance", receipt_uid as "receiptUid", source, created_at as "createdAt" FROM mortgage_payments WHERE account_id = $1 ORDER BY payment_date ASC, id ASC'
     : 'SELECT id, account_id as "accountId", payment_date::text as "paymentDate", installment_no as "installmentNo", total_paid::float as "totalPaid", principal::float as "principal", interest::float as "interest", fee::float as "fee", remaining_balance::float as "remainingBalance", receipt_uid as "receiptUid", source, created_at as "createdAt" FROM mortgage_payments ORDER BY payment_date ASC, id ASC';
   
-  const res = await query<any>(sql, accountId ? [accountId] : []);
+  const res = await query<MortgagePayment>(sql, accountId ? [accountId] : []);
   return res.rows;
 }
 
-export async function saveMortgagePayment(payment: MortgagePayment): Promise<void> {
+export async function saveMortgagePayment(payment: MortgagePayment): Promise<{ inserted: boolean }> {
   await initMortgageSchema();
-  await query(
+  const res = await query<{ is_inserted: boolean }>(
     `INSERT INTO mortgage_payments (account_id, payment_date, installment_no, total_paid, principal, interest, fee, remaining_balance, receipt_uid, source)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (account_id, payment_date, total_paid) DO UPDATE SET
@@ -123,7 +125,8 @@ export async function saveMortgagePayment(payment: MortgagePayment): Promise<voi
        fee = EXCLUDED.fee,
        remaining_balance = EXCLUDED.remaining_balance,
        receipt_uid = EXCLUDED.receipt_uid,
-       source = EXCLUDED.source`,
+       source = EXCLUDED.source
+     RETURNING (xmax = 0) AS is_inserted`,
     [
       payment.accountId,
       payment.paymentDate,
@@ -137,6 +140,7 @@ export async function saveMortgagePayment(payment: MortgagePayment): Promise<voi
       payment.source || 'MANUAL',
     ]
   );
+  return { inserted: Boolean(res.rows[0]?.is_inserted) };
 }
 
 export async function deleteMortgagePayment(id: number): Promise<boolean> {

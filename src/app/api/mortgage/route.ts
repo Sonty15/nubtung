@@ -34,7 +34,7 @@ export function calculateMortgageSummary(
 
     const lastPayment = sortedPayments[sortedPayments.length - 1];
     const remainingBalance =
-      lastPayment && typeof lastPayment.remainingBalance === 'number' && lastPayment.remainingBalance > 0
+      lastPayment && typeof lastPayment.remainingBalance === 'number' && lastPayment.remainingBalance >= 0
         ? Math.round(lastPayment.remainingBalance * 100) / 100
         : calculateRemainingBalanceFromHistory(acc.loanAmount, sortedPayments);
 

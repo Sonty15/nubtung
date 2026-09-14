@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, X, Building2, Calendar, DollarSign, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, X, Building2, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 
 interface ManualPaymentModalProps {
   isOpen?: boolean;
@@ -34,11 +34,13 @@ export default function ManualPaymentModal({
   const [error, setError] = useState<string | null>(null);
 
   // Sync defaultAccountId when changed
-  useEffect(() => {
+  const [prevDefaultAccountId, setPrevDefaultAccountId] = useState(defaultAccountId);
+  if (defaultAccountId !== prevDefaultAccountId) {
+    setPrevDefaultAccountId(defaultAccountId);
     if (defaultAccountId && defaultAccountId !== 'ALL') {
       setAccountId(defaultAccountId);
     }
-  }, [defaultAccountId]);
+  }
 
   if (!isOpen) return null;
 
@@ -78,8 +80,8 @@ export default function ManualPaymentModal({
       if (isNaN(total) || total <= 0) throw new Error('กรุณาระบุยอดชำระที่ถูกต้อง');
       if (isNaN(princ) || princ < 0) throw new Error('กรุณาระบุยอดเงินต้น');
       if (isNaN(intr) || intr < 0) throw new Error('กรุณาระบุดอกเบี้ย');
-
-      const body: any = {
+ 
+      const body: Record<string, unknown> = {
         accountId,
         paymentDate,
         totalPaid: total,
@@ -118,8 +120,8 @@ export default function ManualPaymentModal({
 
       onSuccess();
       if (onClose) onClose();
-    } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -220,7 +220,7 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
                 let text = '';
                 for (const pw of passwords) {
                   try {
-                    text = execSync(`pdftotext -layout -upw "${pw}" "${tempPath}" -`, {
+                    text = execFileSync('pdftotext', ['-layout', '-upw', pw, tempPath, '-'], {
                       encoding: 'utf-8',
                       stdio: ['pipe', 'pipe', 'ignore'],
                     });
@@ -268,7 +268,7 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
     // Save receipts to database
     for (const receipt of parsedReceipts) {
       try {
-        await saveMortgagePayment({
+        const saveRes = await saveMortgagePayment({
           accountId: receipt.accountNo,
           paymentDate: receipt.dateStr,
           totalPaid: receipt.totalPaid,
@@ -279,7 +279,9 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
           receiptUid: String(receipt.uid),
           source: 'EMAIL_SYNC',
         });
-        added++;
+        if (saveRes.inserted) {
+          added++;
+        }
       } catch (err) {
         const msg = `Failed to save payment for account ${receipt.accountNo} (${receipt.dateStr}): ${err instanceof Error ? err.message : String(err)}`;
         console.error(`[GHB Mortgage Sync] ${msg}`);
@@ -298,7 +300,7 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
         let runningBalance = acc.loanAmount;
         for (let i = 0; i < payments.length; i++) {
           const p = payments[i];
-          if (p.remainingBalance && p.remainingBalance > 0) {
+          if (p.remainingBalance !== undefined && p.remainingBalance !== null && p.remainingBalance >= 0) {
             runningBalance = p.remainingBalance;
           } else {
             runningBalance = calculateRemainingBalanceFromHistory(runningBalance, [{ principal: p.principal }]);
@@ -390,7 +392,7 @@ export async function syncGhbInterestFromEmail(targetYear: number): Promise<GhbS
                 for (const pw of passwords) {
                   try {
                     // pdftotext -layout -upw <password> <filepath> -
-                    text = execSync(`pdftotext -layout -upw "${pw}" "${tempPath}" -`, {
+                    text = execFileSync('pdftotext', ['-layout', '-upw', pw, tempPath, '-'], {
                       encoding: 'utf-8',
                       stdio: ['pipe', 'pipe', 'ignore'], // suppress stderr password errors
                     });

@@ -7,11 +7,9 @@ import {
   Mail,
   Edit3,
   Search,
-  Filter,
   ChevronLeft,
   ChevronRight,
   Receipt,
-  FileText,
   AlertCircle,
   CheckCircle2,
 } from 'lucide-react';
@@ -35,10 +33,9 @@ export default function MortgageHistoryTable({
 }: MortgageHistoryTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSource, setSelectedSource] = useState<'ALL' | 'EMAIL_SYNC' | 'MANUAL'>('ALL');
-  const [selectedAccFilter, setSelectedAccFilter] = useState<'ALL' | string>('ALL');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const pageSize = 15;
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Filter & sort payments descending by payment date
@@ -56,11 +53,10 @@ export default function MortgageHistoryTable({
         (p.installmentNo && String(p.installmentNo).includes(searchTerm));
 
       const matchSource = selectedSource === 'ALL' || p.source === selectedSource;
-      const matchAcc = selectedAccFilter === 'ALL' || p.accountId === selectedAccFilter;
 
-      return matchSearch && matchSource && matchAcc;
+      return matchSearch && matchSource;
     });
-  }, [payments, searchTerm, selectedSource, selectedAccFilter]);
+  }, [payments, searchTerm, selectedSource]);
 
   // Pagination
   const totalPages = Math.ceil(filteredPayments.length / pageSize) || 1;
@@ -97,8 +93,8 @@ export default function MortgageHistoryTable({
       setActionMessage({ type: 'success', text: 'ลบรายการสำเร็จ' });
       setTimeout(() => setActionMessage(null), 3000);
       if (onRefresh) onRefresh();
-    } catch (err: any) {
-      setActionMessage({ type: 'error', text: err.message || 'เกิดข้อผิดพลาดในการลบ' });
+    } catch (err: unknown) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการลบ' });
     } finally {
       setDeletingId(null);
     }
@@ -139,7 +135,7 @@ export default function MortgageHistoryTable({
           <select
             value={selectedSource}
             onChange={(e) => {
-              setSelectedSource(e.target.value as any);
+              setSelectedSource(e.target.value as 'ALL' | 'EMAIL_SYNC' | 'MANUAL');
               setCurrentPage(1);
             }}
             className="px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
