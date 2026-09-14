@@ -1,10 +1,42 @@
 import { google } from 'googleapis';
 import { getGoogleAuth } from './auth';
 import { Transaction, TransactionType } from '@/types';
+import type {
+  TaxCalculationResult,
+  TaxDeductions,
+  IncomeBySection,
+} from '@/lib/tax/tax-types';
+import { defaultDeductions } from '@/lib/tax/tax-engine';
 
 const TRANSACTIONS_SHEET = '📝 รายการทั้งหมด';
 const SUMMARY_SHEET = '📊 สรุปยอด';
 const CATEGORIES_SHEET = '🏷️ หมวดหมู่';
+export const SHEET_TAX = '📑 ข้อมูลภาษี';
+
+export const TAX_HEADERS = [
+  'ปีภาษี',
+  'เงินได้พึงประเมินรวม',
+  '40(1) เงินเดือน',
+  '40(2) ฟรีแลนซ์/รับจ้าง',
+  '40(3) ค่าลิขสิทธิ์',
+  '40(4) ดอกเบี้ย/ปันผล',
+  '40(5) ค่าเช่า',
+  '40(6) วิชาชีพอิสระ',
+  '40(7) รับเหมา',
+  '40(8) อื่นๆ/ธุรกิจ',
+  'ค่าใช้จ่ายที่หักได้',
+  'ลดหย่อนตนเองและครอบครัว',
+  'ลดหย่อนประกันและการออม',
+  'ลดหย่อนกองทุนเกษียณและThaiESG',
+  'ลดหย่อนอสังหาฯและมาตรการรัฐ',
+  'เงินบริจาคที่หักได้',
+  'เงินได้สุทธิ',
+  'ภาษีที่คำนวณได้',
+  'ภาษีหัก ณ ที่จ่าย',
+  'ภาษีที่ต้องจ่ายเพิ่ม (คืน)',
+  'รายละเอียดค่าลดหย่อน (JSON)',
+  'อัปเดตล่าสุด',
+];
 
 const DEFAULT_CATEGORIES = [
   'อาหารและเครื่องดื่ม',
@@ -615,4 +647,234 @@ export async function deduplicateSheetTransactions(): Promise<{ beforeCount: num
     removedCount: dupCount,
   };
 }
+
+export const getTransactions = getAllTransactions;
+
+export interface SavedTaxProfile {
+  year: number;
+  income: IncomeBySection;
+  deductions: TaxDeductions;
+  withholdingTax: number;
+}
+
+function parseNumber(value: any): number {
+  if (value === undefined || value === null || value === '') return 0;
+  const clean = String(value).replace(/[^\d.-]/g, '');
+  const num = parseFloat(clean);
+  return isNaN(num) ? 0 : num;
+}
+
+/**
+ * Converts a TaxCalculationResult and TaxDeductions into a row matching TAX_HEADERS.
+ */
+export function taxProfileToRow(
+  taxResult: TaxCalculationResult,
+  deductions: TaxDeductions,
+  year: number = new Date().getFullYear()
+): any[] {
+  const retirementAndThaiEsg =
+    (taxResult.deductionsBreakdown?.retirementGroup || 0) +
+    (taxResult.deductionsBreakdown?.thaiEsg || 0);
+
+  return [
+    year,
+    taxResult.totalIncome ?? 0,
+    taxResult.incomeBySection?.section40_1 ?? 0,
+    taxResult.incomeBySection?.section40_2 ?? 0,
+    taxResult.incomeBySection?.section40_3 ?? 0,
+    taxResult.incomeBySection?.section40_4 ?? 0,
+    taxResult.incomeBySection?.section40_5 ?? 0,
+    taxResult.incomeBySection?.section40_6 ?? 0,
+    taxResult.incomeBySection?.section40_7 ?? 0,
+    taxResult.incomeBySection?.section40_8 ?? 0,
+    taxResult.totalDeductibleExpenses ?? 0,
+    taxResult.deductionsBreakdown?.personalFamily ?? 0,
+    taxResult.deductionsBreakdown?.insuranceSavings ?? 0,
+    retirementAndThaiEsg,
+    taxResult.deductionsBreakdown?.propertyEconomy ?? 0,
+    taxResult.deductionsBreakdown?.donations ?? 0,
+    taxResult.netTaxableIncome ?? 0,
+    taxResult.finalTax ?? 0,
+    taxResult.withholdingTax ?? 0,
+    taxResult.netTaxPayable ?? 0,
+    JSON.stringify(deductions),
+    new Date().toISOString(),
+  ];
+}
+
+/**
+ * Parses a row from '📑 ข้อมูลภาษี' into a SavedTaxProfile.
+ */
+export function rowToTaxProfile(row: any[], fallbackYear?: number): SavedTaxProfile | null {
+  if (!row || row.length === 0 || row[0] === undefined || row[0] === null || String(row[0]).trim() === '') {
+    return null;
+  }
+
+  const cleanYear = String(row[0]).replace(/[^\d]/g, '');
+  const parsedYear = parseInt(cleanYear, 10);
+  const year = isNaN(parsedYear) ? (fallbackYear ?? new Date().getFullYear()) : parsedYear;
+
+  const income: IncomeBySection = {
+    section40_1: parseNumber(row[2]),
+    section40_2: parseNumber(row[3]),
+    section40_3: parseNumber(row[4]),
+    section40_4: parseNumber(row[5]),
+    section40_5: parseNumber(row[6]),
+    section40_6: parseNumber(row[7]),
+    section40_7: parseNumber(row[8]),
+    section40_8: parseNumber(row[9]),
+  };
+
+  let deductions: TaxDeductions = { ...defaultDeductions };
+  if (row[20]) {
+    try {
+      const parsed = typeof row[20] === 'string' ? JSON.parse(row[20]) : row[20];
+      if (typeof parsed === 'object' && parsed !== null) {
+        deductions = { ...defaultDeductions, ...parsed };
+      }
+    } catch (err: any) {
+      console.warn('[Sheets] Failed to parse saved deductions JSON:', err?.message || err);
+    }
+  }
+
+  const withholdingTax = parseNumber(row[18]);
+
+  return {
+    year,
+    income,
+    deductions,
+    withholdingTax,
+  };
+}
+
+/**
+ * Ensures the '📑 ข้อมูลภาษี' tab exists in Google Sheets with appropriate headers.
+ */
+export async function ensureTaxSheetExists(): Promise<void> {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const metadata = await sheets.spreadsheets.get({ spreadsheetId });
+  const existingSheets = metadata.data.sheets?.map(s => s.properties?.title) || [];
+
+  if (!existingSheets.includes(SHEET_TAX)) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            addSheet: {
+              properties: {
+                title: SHEET_TAX,
+              },
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  // Populate headers if empty
+  const headerCheck = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${SHEET_TAX}'!A1:V1`,
+  });
+
+  if (!headerCheck.data.values || headerCheck.data.values.length === 0 || !headerCheck.data.values[0] || headerCheck.data.values[0].length === 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${SHEET_TAX}'!A1:V1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [TAX_HEADERS],
+      },
+    });
+  }
+}
+
+/**
+ * Retrieves the saved tax profile for a given tax year from '📑 ข้อมูลภาษี'.
+ * Returns null if not found or if the sheet is empty.
+ */
+export async function getTaxProfile(year: number): Promise<SavedTaxProfile | null> {
+  await ensureTaxSheetExists();
+
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${SHEET_TAX}'!A2:V`,
+  });
+
+  const rows = response.data.values || [];
+  const targetYearStr = String(year);
+
+  const matchedRow = rows.find(r => {
+    if (!r || r.length === 0 || !r[0]) return false;
+    const cleanYear = String(r[0]).replace(/[^\d]/g, '');
+    return cleanYear === targetYearStr;
+  });
+
+  if (!matchedRow) {
+    return null;
+  }
+
+  return rowToTaxProfile(matchedRow, year);
+}
+
+/**
+ * Upserts the tax profile for a given tax year into '📑 ข้อมูลภาษี'.
+ * Updates existing row if found, otherwise appends a new row.
+ */
+export async function saveTaxProfile(
+  taxResult: TaxCalculationResult,
+  deductions: TaxDeductions,
+  year: number = new Date().getFullYear()
+): Promise<void> {
+  await ensureTaxSheetExists();
+
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${SHEET_TAX}'!A2:V`,
+  });
+
+  const rows = response.data.values || [];
+  const targetYearStr = String(year);
+
+  const rowIndex = rows.findIndex(r => {
+    if (!r || r.length === 0 || !r[0]) return false;
+    const cleanYear = String(r[0]).replace(/[^\d]/g, '');
+    return cleanYear === targetYearStr;
+  });
+
+  const rowData = taxProfileToRow(taxResult, deductions, year);
+
+  if (rowIndex !== -1) {
+    // Row 2 is 0-indexed in `rows`, so sheet row number is rowIndex + 2
+    const sheetRowNum = rowIndex + 2;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${SHEET_TAX}'!A${sheetRowNum}:V${sheetRowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+  } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `'${SHEET_TAX}'!A:V`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+  }
+}
+
 
