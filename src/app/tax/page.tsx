@@ -59,7 +59,11 @@ export default function TaxPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saved' | 'saving' | 'unsaved' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+
+  const isInitialLoadedRef = useRef<boolean>(false);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [notification, setNotification] = useState<NotificationState | null>(null);
   const notificationTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -130,6 +134,13 @@ export default function TaxPage() {
           setWithholdingTax(0);
           setIsManualOverride(false);
         }
+        // Mark initial data load complete
+        setTimeout(() => {
+          if (!ignore) {
+            isInitialLoadedRef.current = true;
+            setAutoSaveStatus('saved');
+          }
+        }, 300);
       } catch (err: unknown) {
         if (ignore) return;
         const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการโหลดข้อมูลภาษี';
@@ -142,12 +153,61 @@ export default function TaxPage() {
       }
     }
 
+    isInitialLoadedRef.current = false;
+    setAutoSaveStatus('idle');
     loadData();
 
     return () => {
       ignore = true;
     };
   }, [selectedYear, showNotification]);
+
+  // Debounced Auto-Save to Google Sheets
+  useEffect(() => {
+    if (!isInitialLoadedRef.current || loading) return;
+
+    setAutoSaveStatus('unsaved');
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      try {
+        const res = await fetch('/api/tax', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            year: selectedYear,
+            income,
+            deductions,
+            withholdingTax,
+          }),
+        });
+
+        let data: { success?: boolean; error?: string } | null = null;
+        try {
+          data = await res.json();
+        } catch {
+          // Ignore
+        }
+
+        if (res.ok && data?.success) {
+          setAutoSaveStatus('saved');
+        } else {
+          setAutoSaveStatus('error');
+        }
+      } catch {
+        setAutoSaveStatus('error');
+      }
+    }, 1500);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [income, deductions, withholdingTax, selectedYear, loading]);
 
   // Explicit sync triggered by user
   const handleExplicitSync = async () => {
@@ -371,20 +431,54 @@ export default function TaxPage() {
               <span>{isManualOverride ? 'โหมดแก้ไขอิสระ' : 'แก้ไขตัวเลขอิสระ'}</span>
             </button>
 
+            {/* Auto-Save Status Badge */}
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-medium border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
+              {autoSaveStatus === 'saving' && (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+                  <span className="text-blue-600 dark:text-blue-400">กำลังบันทึกอัตโนมัติ...</span>
+                </>
+              )}
+              {autoSaveStatus === 'saved' && (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Auto-Save บันทึกแล้ว</span>
+                </>
+              )}
+              {autoSaveStatus === 'unsaved' && (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping inline-block" />
+                  <span className="text-amber-600 dark:text-amber-400">กำลังพิมพ์ (รอ Auto-Save)</span>
+                </>
+              )}
+              {autoSaveStatus === 'error' && (
+                <>
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                  <span className="text-rose-600 dark:text-rose-400">บันทึกไม่สำเร็จ</span>
+                </>
+              )}
+              {autoSaveStatus === 'idle' && (
+                <>
+                  <Save className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-slate-500 dark:text-slate-400">Auto-Save เปิดใช้งาน</span>
+                </>
+              )}
+            </div>
+
             {/* Save to Google Sheet Button */}
             <button
               type="button"
               onClick={handleSaveToSheet}
               disabled={saving || loading}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
-              title="บันทึกข้อมูลภาษีและสิทธิลดหย่อนลง Google Sheets"
+              title="บันทึกข้อมูลภาษีและสิทธิลดหย่อนลง Google Sheets ทันที"
             >
               {saving ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              <span>{saving ? 'กำลังบันทึก...' : 'บันทึกลง Google Sheet'}</span>
+              <span>{saving ? 'กำลังบันทึก...' : 'บันทึกทันที'}</span>
             </button>
           </div>
         </div>
