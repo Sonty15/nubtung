@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
     }
 
     const initialIncome: IncomeBySection = savedProfile?.income || syncedIncome || defaultIncome;
-    const initialDeductions: TaxDeductions = savedProfile?.deductions || defaultDeductions;
+    const initialDeductions: TaxDeductions = savedProfile?.deductions || {
+      ...defaultDeductions,
+      socialSecurity: (syncedIncome.section40_1 || 0) >= 15000 ? 9000 : 0,
+    };
     const initialWithholding = savedProfile?.withholdingTax || 0;
 
     const calculated = calculateTax(initialIncome, initialDeductions, initialWithholding);
