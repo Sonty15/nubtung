@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ListOrdered, Plus, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, ListOrdered, Calculator, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import ManualTransactionModal from './Transactions/ManualTransactionModal';
 
@@ -32,14 +32,14 @@ export default function MobileBottomNav({ onSyncComplete, onRefresh }: MobileBot
 
   return (
     <div
-      className="md:hidden fixed inset-x-0 bottom-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl transition-colors"
+      className="md:hidden fixed inset-x-0 bottom-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 px-2 sm:px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl transition-colors"
       style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}
     >
       <div className="flex items-center justify-around max-w-md mx-auto">
         {/* Dashboard */}
         <Link
           href="/"
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all ${
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-2xl transition-all ${
             pathname === '/'
               ? 'text-emerald-600 dark:text-emerald-400 font-bold scale-105'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -51,19 +51,10 @@ export default function MobileBottomNav({ onSyncComplete, onRefresh }: MobileBot
           <span className="text-[10px] tracking-tight">ภาพรวม</span>
         </Link>
 
-        {/* Quick Add Button */}
-        <div className="flex flex-col items-center">
-          <ManualTransactionModal onSuccess={() => {
-            if (onSyncComplete) onSyncComplete();
-            if (onRefresh) onRefresh();
-          }} isMobileFab={true} />
-          <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-medium">บันทึก</span>
-        </div>
-
         {/* Transactions */}
         <Link
           href="/transactions"
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all ${
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-2xl transition-all ${
             pathname === '/transactions'
               ? 'text-emerald-600 dark:text-emerald-400 font-bold scale-105'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -75,11 +66,35 @@ export default function MobileBottomNav({ onSyncComplete, onRefresh }: MobileBot
           <span className="text-[10px] tracking-tight">รายการ</span>
         </Link>
 
+        {/* Quick Add Button */}
+        <div className="flex flex-col items-center">
+          <ManualTransactionModal onSuccess={() => {
+            if (onSyncComplete) onSyncComplete();
+            if (onRefresh) onRefresh();
+          }} isMobileFab={true} />
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-medium">บันทึก</span>
+        </div>
+
+        {/* Tax */}
+        <Link
+          href="/tax"
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-2xl transition-all ${
+            pathname === '/tax'
+              ? 'text-emerald-600 dark:text-emerald-400 font-bold scale-105'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <div className={`p-1.5 rounded-xl ${pathname === '/tax' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
+            <Calculator className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] tracking-tight">ภาษี</span>
+        </Link>
+
         {/* Sync Button */}
         <button
           onClick={handleQuickSync}
           disabled={syncing}
-          className="flex flex-col items-center gap-1 py-1 px-3 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all disabled:opacity-50"
+          className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all disabled:opacity-50"
         >
           <div className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
             <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin text-emerald-500' : ''}`} />
