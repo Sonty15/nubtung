@@ -84,3 +84,33 @@ export interface TaxCalculationResult {
   isRefund: boolean;
   effectiveTaxRate: number;
 }
+
+export type ExemptionReason =
+  | 'LOAN_CASHBACK'
+  | 'FAMILY_SUPPORT'
+  | 'COST_SHARING'
+  | 'REFUND_TRANSFER';
+
+export interface TaxBreakdownTransaction {
+  id: string;
+  date: string;
+  time?: string;
+  type: string;
+  amount: number;
+  category: string;
+  account?: string;
+  note?: string;
+  section: keyof IncomeBySection;
+  isExempt: boolean;
+  exemptionReason?: ExemptionReason;
+  isUserExcluded?: boolean;
+}
+
+export interface CategorizeTransactionsResult {
+  syncedIncome: IncomeBySection;
+  transactionsBySection: Record<keyof IncomeBySection, TaxBreakdownTransaction[]>;
+  exemptTransactions: TaxBreakdownTransaction[];
+  totalTaxableIncome: number;
+  totalExemptIncome: number;
+}
+
