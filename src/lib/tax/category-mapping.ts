@@ -3,6 +3,7 @@ import type {
   ExemptionReason,
   TaxBreakdownTransaction,
   CategorizeTransactionsResult,
+  SavedTaxProfile,
 } from './tax-types.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { defaultIncome } from './tax-engine.ts';
@@ -11,6 +12,7 @@ export type {
   ExemptionReason,
   TaxBreakdownTransaction,
   CategorizeTransactionsResult,
+  SavedTaxProfile,
 };
 
 export function mapCategoryToSection(categoryName: string): keyof IncomeBySection {
@@ -271,4 +273,31 @@ export function aggregateTransactionsToIncome(
   }>
 ): IncomeBySection {
   return categorizeTransactionsForTax(transactions).syncedIncome;
+}
+
+export function serializeExcludedTransactionIds(ids?: string[]): string {
+  if (!ids || !Array.isArray(ids)) {
+    return JSON.stringify([]);
+  }
+  return JSON.stringify(ids.map(String));
+}
+
+export function deserializeExcludedTransactionIds(value: unknown): string[] {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value.map(String);
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map(String);
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }

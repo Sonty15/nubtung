@@ -114,3 +114,11 @@ export interface CategorizeTransactionsResult {
   totalExemptIncome: number;
 }
 
+export interface SavedTaxProfile {
+  year: number;
+  income: IncomeBySection;
+  deductions: TaxDeductions;
+  withholdingTax: number;
+  excludedTransactionIds?: string[];
+}
+

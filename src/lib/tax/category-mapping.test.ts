@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
-import { mapCategoryToSection, aggregateTransactionsToIncome, checkTaxExemption, categorizeTransactionsForTax } from './category-mapping.ts';
+import { mapCategoryToSection, aggregateTransactionsToIncome, checkTaxExemption, categorizeTransactionsForTax, serializeExcludedTransactionIds, deserializeExcludedTransactionIds } from './category-mapping.ts';
 
 describe('Category to Tax Mapping', () => {
   it('maps salary keywords to section 40(1)', () => {
@@ -394,6 +394,162 @@ describe('categorizeTransactionsForTax', () => {
     assert.strictEqual(result.transactionsBySection.section40_8.length, 0);
     assert.strictEqual(result.syncedIncome.section40_1, 0);
     assert.strictEqual(result.syncedIncome.section40_8, 0);
+  });
+
+  it('does not duplicate exempt transaction if it is both auto-exempt and user-excluded', () => {
+    const transactions = [
+      {
+        id: 'tx-loan-1',
+        date: '2026-02-10',
+        type: 'INCOME',
+        category: 'รายรับอื่นๆ',
+        amount: 100000,
+        note: 'ส่วนต่างกู้บ้าน ธอส. 100,000',
+      },
+    ];
+
+    // User also explicitly excluded this loan transaction
+    const result = categorizeTransactionsForTax(transactions, ['tx-loan-1']);
+
+    assert.strictEqual(result.exemptTransactions.length, 1);
+    assert.strictEqual(result.exemptTransactions[0].id, 'tx-loan-1');
+    assert.strictEqual(result.exemptTransactions[0].isExempt, true);
+    assert.strictEqual(result.exemptTransactions[0].isUserExcluded, true);
+    assert.strictEqual(result.totalExemptIncome, 100000);
+    assert.strictEqual(result.totalTaxableIncome, 0);
+  });
+
+  it('handles empty or undefined userExcludedIds gracefully', () => {
+    const transactions = [
+      {
+        id: 'tx-1',
+        date: '2026-01-25',
+        type: 'INCOME',
+        category: 'เงินเดือน',
+        amount: 50000,
+      },
+    ];
+
+    const res1 = categorizeTransactionsForTax(transactions, undefined);
+    assert.strictEqual(res1.syncedIncome.section40_1, 50000);
+    assert.strictEqual(res1.exemptTransactions.length, 0);
+
+    const res2 = categorizeTransactionsForTax(transactions, []);
+    assert.strictEqual(res2.syncedIncome.section40_1, 50000);
+
+    const res3 = categorizeTransactionsForTax(transactions, new Set());
+    assert.strictEqual(res3.syncedIncome.section40_1, 50000);
+  });
+
+  it('supports multiple user exclusions across various sections', () => {
+    const transactions = [
+      {
+        id: 'tx-sal',
+        date: '2026-01-25',
+        type: 'INCOME',
+        category: 'เงินเดือน',
+        amount: 50000,
+      },
+      {
+        id: 'tx-free',
+        date: '2026-02-01',
+        type: 'INCOME',
+        category: 'ฟรีแลนซ์',
+        amount: 20000,
+      },
+      {
+        id: 'tx-rent',
+        date: '2026-03-01',
+        type: 'INCOME',
+        category: 'ค่าเช่า',
+        amount: 15000,
+      },
+      {
+        id: 'tx-biz',
+        date: '2026-04-01',
+        type: 'INCOME',
+        category: 'ขายของ',
+        amount: 10000,
+      },
+    ];
+
+    // Exclude salary and rent
+    const result = categorizeTransactionsForTax(transactions, ['tx-sal', 'tx-rent']);
+
+    assert.strictEqual(result.syncedIncome.section40_1, 0);
+    assert.strictEqual(result.syncedIncome.section40_2, 20000);
+    assert.strictEqual(result.syncedIncome.section40_5, 0);
+    assert.strictEqual(result.syncedIncome.section40_8, 10000);
+    assert.strictEqual(result.totalTaxableIncome, 30000);
+    assert.strictEqual(result.totalExemptIncome, 65000);
+    assert.strictEqual(result.exemptTransactions.length, 2);
+  });
+});
+
+describe('serializeExcludedTransactionIds and deserializeExcludedTransactionIds', () => {
+  it('serializes array of strings to JSON string', () => {
+    const ids = ['tx-1', 'tx-2', 'tx-3'];
+    const serialized = serializeExcludedTransactionIds(ids);
+    assert.strictEqual(serialized, JSON.stringify(ids));
+  });
+
+  it('serializes empty array, undefined or non-array to empty array JSON string', () => {
+    assert.strictEqual(serializeExcludedTransactionIds([]), '[]');
+    assert.strictEqual(serializeExcludedTransactionIds(undefined), '[]');
+    // @ts-expect-error - testing invalid inputs
+    assert.strictEqual(serializeExcludedTransactionIds(null), '[]');
+    // @ts-expect-error - testing invalid inputs
+    assert.strictEqual(serializeExcludedTransactionIds('invalid'), '[]');
+  });
+
+  it('deserializes JSON string back to string array', () => {
+    const jsonStr = '["tx-10","tx-20"]';
+    const deserialized = deserializeExcludedTransactionIds(jsonStr);
+    assert.deepStrictEqual(deserialized, ['tx-10', 'tx-20']);
+  });
+
+  it('accepts raw array and maps elements to string', () => {
+    const raw = ['tx-1', 123];
+    const deserialized = deserializeExcludedTransactionIds(raw);
+    assert.deepStrictEqual(deserialized, ['tx-1', '123']);
+  });
+
+  it('handles empty, null, undefined or malformed JSON gracefully', () => {
+    assert.deepStrictEqual(deserializeExcludedTransactionIds(''), []);
+    assert.deepStrictEqual(deserializeExcludedTransactionIds(null), []);
+    assert.deepStrictEqual(deserializeExcludedTransactionIds(undefined), []);
+    assert.deepStrictEqual(deserializeExcludedTransactionIds('{ "invalid": true }'), []);
+    assert.deepStrictEqual(deserializeExcludedTransactionIds('not a json'), []);
+  });
+
+  it('roundtrips excluded IDs through serialization and deserialization', () => {
+    const originalIds = ['tx-ghb-140k', 'tx-mom-50k', 'tx-reimburse-4k'];
+    const serialized = serializeExcludedTransactionIds(originalIds);
+    const deserialized = deserializeExcludedTransactionIds(serialized);
+    assert.deepStrictEqual(deserialized, originalIds);
+
+    // Feed roundtripped IDs into categorizeTransactionsForTax
+    const transactions = [
+      {
+        id: 'tx-ghb-140k',
+        date: '2026-02-10',
+        type: 'INCOME',
+        category: 'เงินเดือน',
+        amount: 140000,
+      },
+      {
+        id: 'tx-regular',
+        date: '2026-02-25',
+        type: 'INCOME',
+        category: 'เงินเดือน',
+        amount: 60000,
+      },
+    ];
+
+    const result = categorizeTransactionsForTax(transactions, deserialized);
+    assert.strictEqual(result.syncedIncome.section40_1, 60000);
+    assert.strictEqual(result.exemptTransactions.length, 1);
+    assert.strictEqual(result.exemptTransactions[0].id, 'tx-ghb-140k');
   });
 });
 

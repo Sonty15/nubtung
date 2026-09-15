@@ -5,7 +5,12 @@ import type {
   TaxCalculationResult,
   TaxDeductions,
   IncomeBySection,
+  SavedTaxProfile,
 } from '@/lib/tax/tax-types';
+import {
+  serializeExcludedTransactionIds,
+  deserializeExcludedTransactionIds,
+} from '@/lib/tax/category-mapping';
 import { defaultDeductions } from '@/lib/tax/tax-engine';
 
 const TRANSACTIONS_SHEET = '📝 รายการทั้งหมด';
@@ -36,6 +41,7 @@ export const TAX_HEADERS = [
   'ภาษีที่ต้องจ่ายเพิ่ม (คืน)',
   'รายละเอียดค่าลดหย่อน (JSON)',
   'อัปเดตล่าสุด',
+  'รายการที่ผู้ใช้ยกเว้น (JSON)',
 ];
 
 const DEFAULT_CATEGORIES = [
@@ -650,12 +656,7 @@ export async function deduplicateSheetTransactions(): Promise<{ beforeCount: num
 
 export const getTransactions = getAllTransactions;
 
-export interface SavedTaxProfile {
-  year: number;
-  income: IncomeBySection;
-  deductions: TaxDeductions;
-  withholdingTax: number;
-}
+export type { SavedTaxProfile };
 
 function parseNumber(value: any): number {
   if (value === undefined || value === null || value === '') return 0;
@@ -670,7 +671,8 @@ function parseNumber(value: any): number {
 export function taxProfileToRow(
   taxResult: TaxCalculationResult,
   deductions: TaxDeductions,
-  year: number = new Date().getFullYear()
+  year: number = new Date().getFullYear(),
+  excludedTransactionIds: string[] = []
 ): any[] {
   const retirementAndThaiEsg =
     (taxResult.deductionsBreakdown?.retirementGroup || 0) +
@@ -699,6 +701,7 @@ export function taxProfileToRow(
     taxResult.netTaxPayable ?? 0,
     JSON.stringify(deductions),
     new Date().toISOString(),
+    serializeExcludedTransactionIds(excludedTransactionIds),
   ];
 }
 
@@ -738,12 +741,14 @@ export function rowToTaxProfile(row: any[], fallbackYear?: number): SavedTaxProf
   }
 
   const withholdingTax = parseNumber(row[18]);
+  const excludedTransactionIds = deserializeExcludedTransactionIds(row[22]);
 
   return {
     year,
     income,
     deductions,
     withholdingTax,
+    excludedTransactionIds,
   };
 }
 
@@ -780,16 +785,25 @@ export async function ensureTaxSheetExists(): Promise<void> {
     });
   }
 
-  // Populate headers if empty
+  // Populate headers if empty or extend if new columns exist
   const headerCheck = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${SHEET_TAX}'!A1:V1`,
+    range: `'${SHEET_TAX}'!A1:W1`,
   });
 
   if (!headerCheck.data.values || headerCheck.data.values.length === 0 || !headerCheck.data.values[0] || headerCheck.data.values[0].length === 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${SHEET_TAX}'!A1:V1`,
+      range: `'${SHEET_TAX}'!A1:W1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [TAX_HEADERS],
+      },
+    });
+  } else if (headerCheck.data.values[0].length < TAX_HEADERS.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${SHEET_TAX}'!A1:W1`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [TAX_HEADERS],
@@ -812,7 +826,7 @@ export async function getTaxProfile(year: number): Promise<SavedTaxProfile | nul
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${SHEET_TAX}'!A2:V`,
+    range: `'${SHEET_TAX}'!A2:W`,
   });
 
   const rows = response.data.values || [];
@@ -838,7 +852,8 @@ export async function getTaxProfile(year: number): Promise<SavedTaxProfile | nul
 export async function saveTaxProfile(
   taxResult: TaxCalculationResult,
   deductions: TaxDeductions,
-  year: number = new Date().getFullYear()
+  year: number = new Date().getFullYear(),
+  excludedTransactionIds?: string[]
 ): Promise<void> {
   await ensureTaxSheetExists();
 
@@ -847,7 +862,7 @@ export async function saveTaxProfile(
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${SHEET_TAX}'!A2:V`,
+    range: `'${SHEET_TAX}'!A2:W`,
   });
 
   const rows = response.data.values || [];
@@ -859,14 +874,19 @@ export async function saveTaxProfile(
     return cleanYear === targetYearStr;
   });
 
-  const rowData = taxProfileToRow(taxResult, deductions, year);
+  let finalExcludedIds = excludedTransactionIds;
+  if (finalExcludedIds === undefined && rowIndex !== -1 && rows[rowIndex]?.[22]) {
+    finalExcludedIds = deserializeExcludedTransactionIds(rows[rowIndex][22]);
+  }
+
+  const rowData = taxProfileToRow(taxResult, deductions, year, finalExcludedIds || []);
 
   if (rowIndex !== -1) {
     // Row 2 is 0-indexed in `rows`, so sheet row number is rowIndex + 2
     const sheetRowNum = rowIndex + 2;
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${SHEET_TAX}'!A${sheetRowNum}:V${sheetRowNum}`,
+      range: `'${SHEET_TAX}'!A${sheetRowNum}:W${sheetRowNum}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [rowData],
@@ -875,7 +895,7 @@ export async function saveTaxProfile(
   } else {
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `'${SHEET_TAX}'!A:V`,
+      range: `'${SHEET_TAX}'!A:W`,
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
       requestBody: {
