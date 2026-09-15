@@ -24,6 +24,33 @@ describe('GHB Receipt Parser', () => {
     assert.strictEqual(result.remainingBalance, 99603.74);
   });
 
+  it('parses real GHB PDF table format with 3-column remaining balance header', () => {
+    const sampleText = `
+เลขที่บัญชี 011690010474                                                       ใบเสร็จรับเงินอิเล็กทรอนิกส์
+วันที่      29 สิงหาคม 2569                               https://www.ghbank.co.th GHBank Call Center 02-6459000
+
+  จำนวนเงินที่ชำระ                                                        ****************8,000.00 บาท
+
+โดยเลขที่บัญชี
+ค่าประกันอัคคีภัย /                 ดอกเบี้ย                         เงินต้น
+ค่าธรรมเนียมอื่น
+0.00                                3,901.31                         4,098.69
+ค่าประกันอัคคีภัย /
+ค่าธรรมเนียมอื่นคงเหลือ             ดอกเบี้ยคงเหลือ                  เงินต้นคงเหลือ
+0.00                                0.00                             2,076,961.73
+เงินงวด                             อัตราดอกเบี้ย                    เงินต้นค้างชำระ
+6,100.00                            2.2000%                          0.00
+    `;
+    const result = parseGhbReceiptText(sampleText);
+    assert.ok(result);
+    assert.strictEqual(result.accountNo, '011690010474');
+    assert.strictEqual(result.totalPaid, 8000.00);
+    assert.strictEqual(result.fee, 0.00);
+    assert.strictEqual(result.interest, 3901.31);
+    assert.strictEqual(result.principal, 4098.69);
+    assert.strictEqual(result.remainingBalance, 2076961.73);
+  });
+
   it('parses receipt with alternative keyword ยอดคงเหลือ and house account', () => {
     const sampleText = `
       ธนาคารอาคารสงเคราะห์ (ghbank)

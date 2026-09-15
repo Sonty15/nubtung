@@ -114,18 +114,24 @@ export default function MortgageCharts({ payments, loading = false }: MortgageCh
     // Group by Month or Payment Date
     // If multiple entries occur in same month across accounts, we group them by YYYY-MM
     const map = new Map<string, MonthlyAggregatedData>();
+    const accountLatestBalances = new Map<string, number>();
 
     for (const p of sorted) {
       const monthKey = p.paymentDate.slice(0, 7); // YYYY-MM
-      const existing = map.get(monthKey);
+      const balance = Number(p.remainingBalance) || 0;
+      if (balance > 0) {
+        accountLatestBalances.set(p.accountId, balance);
+      }
 
+      const totalBalanceAtThisPoint = Array.from(accountLatestBalances.values()).reduce((sum, b) => sum + b, 0);
+
+      const existing = map.get(monthKey);
       if (existing) {
         existing.principal += Number(p.principal) || 0;
         existing.interest += Number(p.interest) || 0;
         existing.fee += Number(p.fee) || 0;
         existing.totalPaid += Number(p.totalPaid) || 0;
-        // Remaining balance: take the latest
-        existing.remainingBalance = Number(p.remainingBalance) || existing.remainingBalance;
+        existing.remainingBalance = totalBalanceAtThisPoint;
         existing.fullDate = p.paymentDate;
       } else {
         map.set(monthKey, {
@@ -136,7 +142,7 @@ export default function MortgageCharts({ payments, loading = false }: MortgageCh
           interest: Number(p.interest) || 0,
           fee: Number(p.fee) || 0,
           totalPaid: Number(p.totalPaid) || 0,
-          remainingBalance: Number(p.remainingBalance) || 0,
+          remainingBalance: totalBalanceAtThisPoint,
         });
       }
     }

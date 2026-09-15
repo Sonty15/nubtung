@@ -134,9 +134,24 @@ export function parseGhbReceiptText(text: string): ParsedReceipt | null {
     principal = parseFloat(rowMatch[3].replace(/,/g, ''));
   }
 
-  // Remaining balance: เงินต้นคงเหลือ 99,603.74 บาท or ยอดคงเหลือ 2,095,350.00 บาท
-  const balanceMatch = text.match(/(?:เงินต้นคงเหลือ|ยอดคงเหลือ)\s+\**([\d,]+\.\d{2})/);
-  const remainingBalance = balanceMatch ? parseFloat(balanceMatch[1].replace(/,/g, '')) : undefined;
+  // Remaining balance:
+  // 1. Table layout in GH Bank electronic receipt PDF:
+  // ค่าประกันอัคคีภัย /
+  // ค่าธรรมเนียมอื่นคงเหลือ   ดอกเบี้ยคงเหลือ   เงินต้นคงเหลือ
+  // 0.00                     0.00              2,076,961.73
+  const tableMatch = text.match(/ดอกเบี้ยคงเหลือ\s+เงินต้นคงเหลือ\s*[\r\n]+\s*([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/);
+  let remainingBalance: number | undefined;
+
+  if (tableMatch) {
+    remainingBalance = parseFloat(tableMatch[3].replace(/,/g, ''));
+  } else {
+    // 2. Same-line keyword: เงินต้นคงเหลือ 99,603.74 บาท or ยอดคงเหลือ 2,095,350.00 บาท
+    // Use [^\S\r\n]+ to match horizontal spaces only, avoiding multi-line misread
+    const lineMatch = text.match(/(?:เงินต้นคงเหลือ|ยอดคงเหลือ)[^\S\r\n]+\**([\d,]+\.\d{2})/);
+    if (lineMatch) {
+      remainingBalance = parseFloat(lineMatch[1].replace(/,/g, ''));
+    }
+  }
 
   return {
     accountNo,
@@ -300,7 +315,7 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
         let runningBalance = acc.loanAmount;
         for (let i = 0; i < payments.length; i++) {
           const p = payments[i];
-          if (p.remainingBalance !== undefined && p.remainingBalance !== null && p.remainingBalance >= 0) {
+          if (p.remainingBalance !== undefined && p.remainingBalance !== null && p.remainingBalance > 0) {
             runningBalance = p.remainingBalance;
           } else {
             runningBalance = calculateRemainingBalanceFromHistory(runningBalance, [{ principal: p.principal }]);

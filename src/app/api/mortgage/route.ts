@@ -34,7 +34,7 @@ export function calculateMortgageSummary(
 
     const lastPayment = sortedPayments[sortedPayments.length - 1];
     const remainingBalance =
-      lastPayment && typeof lastPayment.remainingBalance === 'number' && lastPayment.remainingBalance >= 0
+      lastPayment && typeof lastPayment.remainingBalance === 'number' && lastPayment.remainingBalance > 0
         ? Math.round(lastPayment.remainingBalance * 100) / 100
         : calculateRemainingBalanceFromHistory(acc.loanAmount, sortedPayments);
 
@@ -96,7 +96,35 @@ export async function GET(request: NextRequest) {
     const accountId = searchParams.get('accountId');
 
     const accounts = await getMortgageAccounts();
-    const allPayments = await getMortgagePayments();
+    const rawPayments = await getMortgagePayments();
+
+    // Chronologically sort and heal any payments where remainingBalance <= 0
+    const sortedPayments = [...rawPayments].sort((a, b) => {
+      const dateDiff = a.paymentDate.localeCompare(b.paymentDate);
+      if (dateDiff !== 0) return dateDiff;
+      return (a.id || 0) - (b.id || 0);
+    });
+
+    const runningBalances = new Map<string, number>();
+    for (const acc of accounts) {
+      runningBalances.set(acc.id, acc.loanAmount);
+    }
+
+    const allPayments = sortedPayments.map((p) => {
+      const currentRunning = runningBalances.get(p.accountId) ?? 0;
+      let remainingBalance: number;
+      if (typeof p.remainingBalance === 'number' && p.remainingBalance > 0) {
+        remainingBalance = p.remainingBalance;
+        runningBalances.set(p.accountId, p.remainingBalance);
+      } else {
+        remainingBalance = Math.max(0, Math.round((currentRunning - (Number(p.principal) || 0)) * 100) / 100);
+        runningBalances.set(p.accountId, remainingBalance);
+      }
+      return {
+        ...p,
+        remainingBalance,
+      };
+    });
 
     const summary = calculateMortgageSummary(accounts, allPayments);
 
