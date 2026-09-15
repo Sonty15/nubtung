@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       transactionsBySection,
       exemptTransactions,
       userExcludedIds,
+      rawYearTransactions: yearTransactions,
     });
   } catch (error: any) {
     console.error('Error fetching tax data:', error);

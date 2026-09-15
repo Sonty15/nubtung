@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { RefreshCw, Sliders, CheckCircle, Info, Sparkles, Layers } from 'lucide-react';
-import type { IncomeBySection } from '@/lib/tax/tax-types';
+import { RefreshCw, Sliders, CheckCircle, Info, Sparkles, Layers, ShieldCheck } from 'lucide-react';
+import type { IncomeBySection, TaxBreakdownTransaction } from '@/lib/tax/tax-types';
 
 interface TaxIncomeFormProps {
   income: IncomeBySection;
@@ -11,6 +11,10 @@ interface TaxIncomeFormProps {
   isManualOverride: boolean;
   onToggleOverride: () => void;
   onResetSynced: () => void;
+  transactionsBySection?: Record<keyof IncomeBySection, TaxBreakdownTransaction[]>;
+  exemptTransactions?: TaxBreakdownTransaction[];
+  excludedTransactionIds?: Set<string>;
+  onOpenBreakdown?: (sectionKey: keyof IncomeBySection | 'exempt', title: string) => void;
 }
 
 interface SectionMeta {
@@ -114,8 +118,16 @@ export default function TaxIncomeForm({
   isManualOverride,
   onToggleOverride,
   onResetSynced,
+  transactionsBySection,
+  exemptTransactions = [],
+  excludedTransactionIds,
+  onOpenBreakdown,
 }: TaxIncomeFormProps) {
   const totalIncomeCalculated = Object.values(income).reduce((acc, val) => acc + (val || 0), 0);
+  const totalExemptAmount = exemptTransactions.reduce(
+    (sum, tx) => sum + (Number(tx.amount) || 0),
+    0
+  );
 
   const handleInputChange = (key: keyof IncomeBySection, rawValue: string) => {
     // Clean non-numeric characters except decimal point
@@ -205,6 +217,13 @@ export default function TaxIncomeForm({
           const currentAmount = income[section.key] || 0;
           const currentExpense = expenses[section.key] || 0;
 
+          const activeList = transactionsBySection?.[section.key] || [];
+          const excludedList = exemptTransactions.filter(
+            (tx) => tx.section === section.key
+          );
+          const totalSectionTxCount = activeList.length + excludedList.length;
+          const excludedCount = excludedList.length;
+
           return (
             <div
               key={section.key}
@@ -230,6 +249,31 @@ export default function TaxIncomeForm({
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
                   {section.subtitle}
                 </p>
+              </div>
+
+              {/* Transaction count badge & Breakdown modal trigger */}
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/40 dark:border-slate-800/40">
+                <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {totalSectionTxCount} รายการ
+                  </span>
+                  {excludedCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/40">
+                      🚫 ยกเว้น {excludedCount} รายการ
+                    </span>
+                  )}
+                </div>
+
+                {onOpenBreakdown && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenBreakdown(section.key, section.title)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/70 dark:border-emerald-800/60 transition-all cursor-pointer shadow-2xs hover:shadow-xs shrink-0"
+                    title={`ดูรายการธุรกรรมของ ${section.code}`}
+                  >
+                    <span>🔍 ดูรายการ ({totalSectionTxCount})</span>
+                  </button>
+                )}
               </div>
 
               {/* Input and Live Expense Badge */}
@@ -269,6 +313,49 @@ export default function TaxIncomeForm({
             </div>
           );
         })}
+      </div>
+
+      {/* 🛡️ Non-Taxable / Exempt Income Card */}
+      <div className="p-4 sm:p-6 rounded-3xl bg-linear-to-br from-slate-50 via-slate-50/80 to-rose-50/30 dark:from-slate-800/70 dark:via-slate-800/40 dark:to-rose-950/20 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="space-y-2 max-w-2xl min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="p-1.5 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </span>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>🛡️ รายรับที่ได้รับยกเว้นภาษี (Non-Taxable / Exempt Income)</span>
+            </h3>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50">
+              {exemptTransactions.length} รายการ
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            ระบบคัดกรองเงินกู้บ้าน/ส่วนต่าง, เงินอุปการะจากพ่อแม่ตาม ม.42(26), และเงินแชร์ค่าใช้จ่ายออกให้อัตโนมัติ ไม่นำมารวมเป็นฐานภาษี
+          </p>
+        </div>
+
+        <div className="flex sm:flex-col items-center md:items-end justify-between md:justify-center gap-3 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-slate-200/60 dark:border-slate-800/60">
+          <div className="text-left md:text-right">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">
+              ยอดยกเว้นภาษีรวม
+            </span>
+            <div className="text-lg sm:text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
+              ฿{totalExemptAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+
+          {onOpenBreakdown && (
+            <button
+              type="button"
+              onClick={() => onOpenBreakdown('exempt', 'รายรับที่ได้รับยกเว้นภาษี (Non-Taxable Income)')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-xs hover:shadow-md shrink-0"
+              title="ดูรายการธุรกรรมที่ได้รับการยกเว้นภาษีทั้งหมด"
+            >
+              <span>🔍 ดูรายการยกเว้น ({exemptTransactions.length} รายการ)</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

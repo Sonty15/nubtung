@@ -8,16 +8,19 @@ import {
   TaxIncomeForm,
   TaxDeductionsForm,
   TaxBracketTable,
+  IncomeBreakdownModal,
 } from '@/components/Tax';
 import {
   calculateTax,
   defaultIncome,
   defaultDeductions,
 } from '@/lib/tax/tax-engine';
+import { categorizeTransactionsForTax } from '@/lib/tax/category-mapping';
 import type {
   IncomeBySection,
   TaxDeductions,
   TaxCalculationResult,
+  TaxBreakdownTransaction,
 } from '@/lib/tax/tax-types';
 import {
   Calculator,
@@ -34,6 +37,22 @@ import {
 interface NotificationState {
   type: 'success' | 'error' | 'info';
   message: string;
+}
+
+interface TaxApiResponse {
+  success?: boolean;
+  error?: string;
+  syncedIncome?: IncomeBySection;
+  savedProfile?: {
+    income?: IncomeBySection;
+    deductions?: TaxDeductions;
+    withholdingTax?: number;
+    excludedTransactionIds?: string[];
+  };
+  transactionsBySection?: Record<keyof IncomeBySection, TaxBreakdownTransaction[]>;
+  exemptTransactions?: TaxBreakdownTransaction[];
+  userExcludedIds?: string[];
+  rawYearTransactions?: any[];
 }
 
 export default function TaxPage() {
@@ -55,6 +74,30 @@ export default function TaxPage() {
   const [deductions, setDeductions] = useState<TaxDeductions>(defaultDeductions);
   const [withholdingTax, setWithholdingTax] = useState<number>(0);
   const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
+
+  // Smart Tax Breakdown and Exclusions State
+  const [transactionsBySection, setTransactionsBySection] = useState<
+    Record<keyof IncomeBySection, TaxBreakdownTransaction[]>
+  >({
+    section40_1: [],
+    section40_2: [],
+    section40_3: [],
+    section40_4: [],
+    section40_5: [],
+    section40_6: [],
+    section40_7: [],
+    section40_8: [],
+  });
+  const [exemptTransactions, setExemptTransactions] = useState<TaxBreakdownTransaction[]>([]);
+  const [rawYearTransactions, setRawYearTransactions] = useState<any[]>([]);
+  const [excludedTransactionIds, setExcludedTransactionIds] = useState<Set<string>>(new Set());
+
+  // Breakdown Modal State
+  const [breakdownModalOpen, setBreakdownModalOpen] = useState<boolean>(false);
+  const [selectedBreakdownSection, setSelectedBreakdownSection] = useState<
+    keyof IncomeBySection | 'exempt' | null
+  >(null);
+  const [selectedBreakdownTitle, setSelectedBreakdownTitle] = useState<string>('');
 
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
@@ -97,16 +140,7 @@ export default function TaxPage() {
       setError(null);
       try {
         const res = await fetch(`/api/tax?year=${selectedYear}`);
-        let data: {
-          success?: boolean;
-          error?: string;
-          syncedIncome?: IncomeBySection;
-          savedProfile?: {
-            income?: IncomeBySection;
-            deductions?: TaxDeductions;
-            withholdingTax?: number;
-          };
-        } | null = null;
+        let data: TaxApiResponse | null = null;
 
         try {
           data = await res.json();
@@ -122,6 +156,22 @@ export default function TaxPage() {
 
         const fetchedSynced: IncomeBySection = data.syncedIncome || defaultIncome;
         setSyncedIncome(fetchedSynced);
+
+        if (data.transactionsBySection) {
+          setTransactionsBySection(data.transactionsBySection);
+        }
+        if (data.exemptTransactions) {
+          setExemptTransactions(data.exemptTransactions);
+        }
+        const excludedList: string[] =
+          data.savedProfile?.excludedTransactionIds || data.userExcludedIds || [];
+        setExcludedTransactionIds(new Set(excludedList));
+
+        const rawTxs = data.rawYearTransactions || [
+          ...(data.transactionsBySection ? Object.values(data.transactionsBySection).flat() : []),
+          ...(data.exemptTransactions || []),
+        ];
+        setRawYearTransactions(rawTxs);
 
         if (data.savedProfile) {
           setIncome(data.savedProfile.income || fetchedSynced);
@@ -182,6 +232,7 @@ export default function TaxPage() {
             income,
             deductions,
             withholdingTax,
+            excludedTransactionIds: Array.from(excludedTransactionIds),
           }),
         });
 
@@ -207,7 +258,7 @@ export default function TaxPage() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [income, deductions, withholdingTax, selectedYear, loading]);
+  }, [income, deductions, withholdingTax, selectedYear, loading, excludedTransactionIds]);
 
   // Explicit sync triggered by user
   const handleExplicitSync = async () => {
@@ -216,11 +267,7 @@ export default function TaxPage() {
 
     try {
       const res = await fetch(`/api/tax?year=${selectedYear}`);
-      let data: {
-        success?: boolean;
-        error?: string;
-        syncedIncome?: IncomeBySection;
-      } | null = null;
+      let data: TaxApiResponse | null = null;
 
       try {
         data = await res.json();
@@ -236,6 +283,22 @@ export default function TaxPage() {
       setSyncedIncome(fetchedSynced);
       setIncome(fetchedSynced);
       setIsManualOverride(false);
+
+      if (data.transactionsBySection) {
+        setTransactionsBySection(data.transactionsBySection);
+      }
+      if (data.exemptTransactions) {
+        setExemptTransactions(data.exemptTransactions);
+      }
+      const excludedList: string[] =
+        data.savedProfile?.excludedTransactionIds || data.userExcludedIds || [];
+      setExcludedTransactionIds(new Set(excludedList));
+
+      const rawTxs = data.rawYearTransactions || [
+        ...(data.transactionsBySection ? Object.values(data.transactionsBySection).flat() : []),
+        ...(data.exemptTransactions || []),
+      ];
+      setRawYearTransactions(rawTxs);
 
       showNotification(
         'success',
@@ -267,6 +330,7 @@ export default function TaxPage() {
           income,
           deductions,
           withholdingTax,
+          excludedTransactionIds: Array.from(excludedTransactionIds),
         }),
       });
 
@@ -320,6 +384,109 @@ export default function TaxPage() {
     setLoading(true);
     setSelectedYear(year);
   };
+
+  const handleToggleExclude = useCallback(
+    (txId: string) => {
+      setExcludedTransactionIds((prevSet) => {
+        const newSet = new Set(prevSet);
+        if (newSet.has(txId)) {
+          newSet.delete(txId);
+        } else {
+          newSet.add(txId);
+        }
+
+        const txsToCategorize =
+          rawYearTransactions.length > 0
+            ? rawYearTransactions
+            : [
+                ...Object.values(transactionsBySection).flat(),
+                ...exemptTransactions,
+              ];
+
+        // Recompute with categorizeTransactionsForTax so income and exemptions reflect instantly
+        const categorized = categorizeTransactionsForTax(txsToCategorize, newSet);
+        setSyncedIncome(categorized.syncedIncome);
+        setTransactionsBySection(categorized.transactionsBySection);
+        setExemptTransactions(categorized.exemptTransactions);
+
+        let newIncome = income;
+        if (!isManualOverride) {
+          newIncome = categorized.syncedIncome;
+          setIncome(categorized.syncedIncome);
+        }
+
+        // Cancel pending debounced auto-save timer and persist immediately
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current);
+        }
+
+        setAutoSaveStatus('saving');
+        fetch('/api/tax', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            year: selectedYear,
+            income: newIncome,
+            deductions,
+            withholdingTax,
+            excludedTransactionIds: Array.from(newSet),
+          }),
+        })
+          .then((res) => {
+            if (res.ok) {
+              setAutoSaveStatus('saved');
+            } else {
+              setAutoSaveStatus('error');
+            }
+          })
+          .catch(() => {
+            setAutoSaveStatus('error');
+          });
+
+        return newSet;
+      });
+    },
+    [
+      rawYearTransactions,
+      transactionsBySection,
+      exemptTransactions,
+      isManualOverride,
+      income,
+      deductions,
+      withholdingTax,
+      selectedYear,
+    ]
+  );
+
+  const handleOpenBreakdown = useCallback(
+    (sectionKey: keyof IncomeBySection | 'exempt', title: string) => {
+      setSelectedBreakdownSection(sectionKey);
+      setSelectedBreakdownTitle(title);
+      setBreakdownModalOpen(true);
+    },
+    []
+  );
+
+  const modalTransactions: TaxBreakdownTransaction[] = useMemo(() => {
+    if (!selectedBreakdownSection) return [];
+    if (selectedBreakdownSection === 'exempt') {
+      return exemptTransactions;
+    }
+    const active = transactionsBySection[selectedBreakdownSection] || [];
+    const excludedForSection = exemptTransactions.filter(
+      (tx) => tx.section === selectedBreakdownSection
+    );
+    const combined = [...active, ...excludedForSection];
+    const seen = new Set<string>();
+    return combined
+      .filter((tx) => {
+        const key = tx.id || `${tx.date}-${tx.amount}-${tx.note}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [selectedBreakdownSection, transactionsBySection, exemptTransactions]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0b0f19] transition-colors">
@@ -514,6 +681,10 @@ export default function TaxPage() {
           isManualOverride={isManualOverride}
           onToggleOverride={handleToggleOverride}
           onResetSynced={handleResetSynced}
+          transactionsBySection={transactionsBySection}
+          exemptTransactions={exemptTransactions}
+          excludedTransactionIds={excludedTransactionIds}
+          onOpenBreakdown={handleOpenBreakdown}
         />
 
         {/* 3. Deductions Form */}
@@ -529,6 +700,17 @@ export default function TaxPage() {
         {/* 4. Progressive Tax Bracket Table */}
         <TaxBracketTable result={result} />
       </main>
+
+      {/* Income Breakdown Modal */}
+      <IncomeBreakdownModal
+        isOpen={breakdownModalOpen}
+        onClose={() => setBreakdownModalOpen(false)}
+        sectionKey={selectedBreakdownSection}
+        sectionTitle={selectedBreakdownTitle}
+        transactions={modalTransactions}
+        excludedIds={excludedTransactionIds}
+        onToggleExclude={handleToggleExclude}
+      />
 
       <MobileBottomNav
         onSyncComplete={handleExplicitSync}
