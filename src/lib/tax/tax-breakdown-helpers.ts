@@ -55,18 +55,17 @@ export function formatThaiDate(dateStr?: string): string {
 
 /**
  * Determines whether a transaction is currently excluded from taxable income.
- * - Standard income transaction: excluded if in excludedIds or isUserExcluded.
- * - Auto-exempt transaction: excluded by default, but user can force-include (by toggling into excludedIds).
+ * - Auto-exempt transaction: always excluded by statutory tax law (loan cashback, Sec 42(26), cost sharing).
+ * - Standard income transaction: excluded if present in excludedIds or isUserExcluded.
  */
 export function isTransactionExcluded(
   tx: TaxBreakdownTransaction,
   excludedIds: Set<string>
 ): boolean {
-  const isMarked = tx.id ? excludedIds.has(tx.id) : false;
   if (tx.isExempt) {
-    // If user toggled an auto-exempt transaction, it is force-included (so not excluded).
-    return !isMarked;
+    return true;
   }
+  const isMarked = tx.id ? excludedIds.has(tx.id) : false;
   return isMarked || Boolean(tx.isUserExcluded);
 }
 

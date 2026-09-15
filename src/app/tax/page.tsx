@@ -387,74 +387,38 @@ export default function TaxPage() {
 
   const handleToggleExclude = useCallback(
     (txId: string) => {
-      setExcludedTransactionIds((prevSet) => {
-        const newSet = new Set(prevSet);
-        if (newSet.has(txId)) {
-          newSet.delete(txId);
-        } else {
-          newSet.add(txId);
-        }
+      const nextExcluded = new Set(excludedTransactionIds);
+      if (nextExcluded.has(txId)) {
+        nextExcluded.delete(txId);
+      } else {
+        nextExcluded.add(txId);
+      }
+      setExcludedTransactionIds(nextExcluded);
 
-        const txsToCategorize =
-          rawYearTransactions.length > 0
-            ? rawYearTransactions
-            : [
-                ...Object.values(transactionsBySection).flat(),
-                ...exemptTransactions,
-              ];
+      const txsToCategorize =
+        rawYearTransactions.length > 0
+          ? rawYearTransactions
+          : [
+              ...Object.values(transactionsBySection).flat(),
+              ...exemptTransactions,
+            ];
 
-        // Recompute with categorizeTransactionsForTax so income and exemptions reflect instantly
-        const categorized = categorizeTransactionsForTax(txsToCategorize, newSet);
-        setSyncedIncome(categorized.syncedIncome);
-        setTransactionsBySection(categorized.transactionsBySection);
-        setExemptTransactions(categorized.exemptTransactions);
+      // Recompute with categorizeTransactionsForTax so income and exemptions reflect instantly
+      const categorized = categorizeTransactionsForTax(txsToCategorize, nextExcluded);
+      setSyncedIncome(categorized.syncedIncome);
+      setTransactionsBySection(categorized.transactionsBySection);
+      setExemptTransactions(categorized.exemptTransactions);
 
-        let newIncome = income;
-        if (!isManualOverride) {
-          newIncome = categorized.syncedIncome;
-          setIncome(categorized.syncedIncome);
-        }
-
-        // Cancel pending debounced auto-save timer and persist immediately
-        if (autoSaveTimerRef.current) {
-          clearTimeout(autoSaveTimerRef.current);
-        }
-
-        setAutoSaveStatus('saving');
-        fetch('/api/tax', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            year: selectedYear,
-            income: newIncome,
-            deductions,
-            withholdingTax,
-            excludedTransactionIds: Array.from(newSet),
-          }),
-        })
-          .then((res) => {
-            if (res.ok) {
-              setAutoSaveStatus('saved');
-            } else {
-              setAutoSaveStatus('error');
-            }
-          })
-          .catch(() => {
-            setAutoSaveStatus('error');
-          });
-
-        return newSet;
-      });
+      if (!isManualOverride) {
+        setIncome(categorized.syncedIncome);
+      }
     },
     [
+      excludedTransactionIds,
       rawYearTransactions,
       transactionsBySection,
       exemptTransactions,
       isManualOverride,
-      income,
-      deductions,
-      withholdingTax,
-      selectedYear,
     ]
   );
 

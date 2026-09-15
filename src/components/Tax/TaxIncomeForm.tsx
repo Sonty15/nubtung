@@ -218,11 +218,11 @@ export default function TaxIncomeForm({
           const currentExpense = expenses[section.key] || 0;
 
           const activeList = transactionsBySection?.[section.key] || [];
-          const excludedList = exemptTransactions.filter(
-            (tx) => tx.section === section.key
+          const userExcludedList = exemptTransactions.filter(
+            (tx) => tx.section === section.key && tx.isUserExcluded && !tx.isExempt
           );
-          const totalSectionTxCount = activeList.length + excludedList.length;
-          const excludedCount = excludedList.length;
+          const totalSectionTxCount = activeList.length + userExcludedList.length;
+          const excludedCount = userExcludedList.length;
 
           return (
             <div

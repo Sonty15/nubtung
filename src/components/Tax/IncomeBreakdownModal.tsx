@@ -464,10 +464,12 @@ export default function IncomeBreakdownModal({
                               onToggleExclude(tx.id);
                             }
                           }}
-                          disabled={!tx.id}
+                          disabled={!tx.id || tx.isExempt}
                           title={
                             !tx.id
                               ? 'ไม่มี Transaction ID ไม่สามารถสลับสถานะได้'
+                              : tx.isExempt
+                              ? 'รายการยกเว้นตามกฎหมาย (ไม่นำมารวมเป็นฐานภาษี)'
                               : isTaxable
                               ? 'คลิกเพื่อยกเว้นรายการนี้จากการคำนวณภาษี'
                               : 'คลิกเพื่อรวมรายการนี้ในการคำนวณภาษี'

@@ -52,7 +52,7 @@ describe('tax-breakdown-helpers', () => {
       assert.strictEqual(isTransactionExcluded(tx, excludedIds), true);
     });
 
-    it('returns true for auto-exempt transaction by default when not in excludedIds', () => {
+    it('returns true for auto-exempt transaction regardless of excludedIds', () => {
       const tx: TaxBreakdownTransaction = {
         id: 'tx-loan',
         date: '2026-02-10',
@@ -64,24 +64,8 @@ describe('tax-breakdown-helpers', () => {
         exemptionReason: 'LOAN_CASHBACK',
       };
 
-      const excludedIds = new Set<string>();
-      assert.strictEqual(isTransactionExcluded(tx, excludedIds), true);
-    });
-
-    it('returns false (force-included) for auto-exempt transaction when user toggles it (present in excludedIds)', () => {
-      const tx: TaxBreakdownTransaction = {
-        id: 'tx-loan',
-        date: '2026-02-10',
-        type: 'INCOME',
-        amount: 140000,
-        category: 'รายรับอื่นๆ',
-        section: 'section40_8',
-        isExempt: true,
-        exemptionReason: 'LOAN_CASHBACK',
-      };
-
-      const excludedIds = new Set(['tx-loan']);
-      assert.strictEqual(isTransactionExcluded(tx, excludedIds), false);
+      assert.strictEqual(isTransactionExcluded(tx, new Set<string>()), true);
+      assert.strictEqual(isTransactionExcluded(tx, new Set(['tx-loan'])), true);
     });
   });
 
