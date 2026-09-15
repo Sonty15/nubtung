@@ -21,6 +21,13 @@ import type {
   TaxBreakdownTransaction,
   ExemptionReason,
 } from '@/lib/tax/tax-types';
+import {
+  REASON_LABELS,
+  SECTION_CODE_MAP,
+  formatThaiDate,
+  isTransactionExcluded,
+  getTransactionStatusInfo,
+} from '@/lib/tax/tax-breakdown-helpers';
 
 export interface IncomeBreakdownModalProps {
   isOpen: boolean;
@@ -31,22 +38,6 @@ export interface IncomeBreakdownModalProps {
   excludedIds: Set<string>;
   onToggleExclude: (txId: string) => void;
 }
-
-import {
-  REASON_LABELS,
-  SECTION_CODE_MAP,
-  formatThaiDate,
-  isTransactionExcluded,
-  getTransactionStatusInfo,
-} from '@/lib/tax/tax-breakdown-helpers';
-
-export {
-  formatThaiDate,
-  isTransactionExcluded,
-  getTransactionStatusInfo,
-  REASON_LABELS,
-  SECTION_CODE_MAP,
-};
 
 
 export default function IncomeBreakdownModal({
