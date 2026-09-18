@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
 import { appendTransactionRows, ensureSheetStructure } from '@/lib/google/sheets';
-import { getProcessedSlipIds, markSlipProcessed } from '@/lib/db';
+import { getProcessedSlipIds, getProcessedSlipMd5s, markSlipProcessed } from '@/lib/db';
 import { SyncStats, Transaction } from '@/types';
 
 // Chunk helper for high-speed parallel processing
@@ -46,6 +46,7 @@ export async function POST() {
     };
 
     const CONCURRENCY = 6; // Process 6 slips in parallel
+    const seenSignatures = new Set<string>();
 
     for (const folder of foldersToScan) {
       console.log(`[Sync] Scanning folder: ${folder.account}...`);
@@ -55,9 +56,34 @@ export async function POST() {
       const unprocessedFiles = files.filter(f => !processedIds.has(f.id));
       stats.skipped += (files.length - unprocessedFiles.length);
 
-      console.log(`[Sync] ${folder.account}: ${files.length} total, ${unprocessedFiles.length} new to process`);
+      // Deduplicate by md5 against database and within batch
+      const md5sToCheck = unprocessedFiles.map(f => f.md5Checksum).filter(Boolean) as string[];
+      const processedMd5s = await getProcessedSlipMd5s(md5sToCheck);
 
-      const fileChunks = chunkArray(unprocessedFiles, CONCURRENCY);
+      const seenMd5s = new Set<string>();
+      const dedupedFiles: typeof unprocessedFiles = [];
+
+      for (const file of unprocessedFiles) {
+        if (file.md5Checksum) {
+          if (processedMd5s.has(file.md5Checksum) || seenMd5s.has(file.md5Checksum)) {
+            console.log(`[Sync] Skipping duplicate MD5 slip: ${file.name} (${file.md5Checksum})`);
+            await markSlipProcessed({
+              driveFileId: file.id,
+              account: folder.account,
+              md5Checksum: file.md5Checksum,
+              status: 'DUPLICATE_IGNORED',
+            });
+            stats.skipped++;
+            continue;
+          }
+          seenMd5s.add(file.md5Checksum);
+        }
+        dedupedFiles.push(file);
+      }
+
+      console.log(`[Sync] ${folder.account}: ${files.length} total, ${dedupedFiles.length} new to process`);
+
+      const fileChunks = chunkArray(dedupedFiles, CONCURRENCY);
 
       for (const chunk of fileChunks) {
         const chunkTransactions: Transaction[] = [];
@@ -80,6 +106,22 @@ export async function POST() {
                 });
                 return;
               }
+
+              const sig = `${slipData.date}|${slipData.time}|${slipData.amount}|${folder.account}`;
+              if (seenSignatures.has(sig)) {
+                console.log(`[Sync] Skipping duplicate slip with identical signature: ${file.name} (${sig})`);
+                await markSlipProcessed({
+                  driveFileId: file.id,
+                  account: folder.account,
+                  amount: slipData.amount,
+                  transactionDate: slipData.date,
+                  md5Checksum: file.md5Checksum,
+                  status: 'DUPLICATE_IGNORED',
+                });
+                stats.skipped++;
+                return;
+              }
+              seenSignatures.add(sig);
 
               if (slipData.isSelfTransfer) {
                 stats.transfers++;
@@ -110,6 +152,7 @@ export async function POST() {
                 account: folder.account,
                 amount: slipData.amount,
                 transactionDate: slipData.date,
+                md5Checksum: file.md5Checksum,
                 status: 'SUCCESS',
               });
 

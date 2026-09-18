@@ -94,9 +94,12 @@ async function handleTextMessage(replyToken: string, text: string) {
 
       const ownNamesConfig = process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot';
       const ownNames = ownNamesConfig.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-      const isSelfName = ownNames.some(name => trimmed.toLowerCase().includes(name));
       const isBothAccounts = hasKplus && hasMake;
-      const isSelfTransfer = isBothAccounts || isSelfName;
+      const isSelfReceiver = ownNames.some(name => {
+        const rx = new RegExp(`(?:ไปยัง|โอนให้|เข้าบัญชี|เข้ากระเป๋า|to)\\s*[^\\n]*?${name}`, 'i');
+        return rx.test(trimmed);
+      }) || /โอนเข้าเป๋าตัง|g-wallet/i.test(trimmed);
+      const isSelfTransfer = isBothAccounts || isSelfReceiver;
 
       let type: TransactionType = 'EXPENSE';
       const isIncomeText = /เงินเข้า|รับโอน|ฝากเงิน|credit|deposit/i.test(trimmed);

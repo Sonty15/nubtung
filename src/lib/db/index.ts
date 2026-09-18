@@ -48,12 +48,16 @@ export async function initSchema(): Promise<void> {
       account VARCHAR(100) NOT NULL,
       amount NUMERIC(15, 2),
       transaction_date VARCHAR(50),
+      md5_checksum VARCHAR(100),
       status VARCHAR(50) NOT NULL,
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     );
 
+    ALTER TABLE processed_slips ADD COLUMN IF NOT EXISTS md5_checksum VARCHAR(100);
+
     CREATE INDEX IF NOT EXISTS idx_processed_slips_status ON processed_slips(status);
     CREATE INDEX IF NOT EXISTS idx_processed_slips_dedup ON processed_slips(amount, status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_processed_slips_md5 ON processed_slips(md5_checksum);
 
     CREATE TABLE IF NOT EXISTS processed_statements (
       file_id VARCHAR(255) PRIMARY KEY,
@@ -89,6 +93,20 @@ export async function getProcessedSlipIds(driveFileIds: string[]): Promise<Set<s
   return new Set(res.rows.map((r) => r.drive_file_id));
 }
 
+/**
+ * Returns a Set of md5_checksums that have already been processed successfully
+ */
+export async function getProcessedSlipMd5s(md5Checksums: string[]): Promise<Set<string>> {
+  const cleanMd5s = (md5Checksums || []).filter(Boolean);
+  if (cleanMd5s.length === 0) return new Set();
+
+  const res = await query(
+    "SELECT md5_checksum FROM processed_slips WHERE md5_checksum = ANY($1) AND status = 'SUCCESS'",
+    [cleanMd5s]
+  );
+  return new Set(res.rows.map((r) => r.md5_checksum));
+}
+
 export async function markSlipsProcessedBatch(driveFileIds: string[]): Promise<void> {
   const cleanIds = (driveFileIds || []).map((id) => id?.trim()).filter(Boolean);
   if (cleanIds.length === 0) return;
@@ -112,21 +130,24 @@ export async function markSlipProcessed(data: {
   account: string;
   amount?: number;
   transactionDate?: string;
-  status: 'SUCCESS' | 'FAILED' | 'IGNORED_ZERO';
+  md5Checksum?: string;
+  status: 'SUCCESS' | 'FAILED' | 'IGNORED_ZERO' | 'DUPLICATE_IGNORED';
 }): Promise<void> {
   await query(
-    `INSERT INTO processed_slips (drive_file_id, account, amount, transaction_date, status)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO processed_slips (drive_file_id, account, amount, transaction_date, md5_checksum, status)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (drive_file_id) DO UPDATE SET
        account = EXCLUDED.account,
        amount = EXCLUDED.amount,
        transaction_date = EXCLUDED.transaction_date,
+       md5_checksum = COALESCE(EXCLUDED.md5_checksum, processed_slips.md5_checksum),
        status = EXCLUDED.status`,
     [
       data.driveFileId,
       data.account,
       data.amount ?? null,
       data.transactionDate ?? null,
+      data.md5Checksum ?? null,
       data.status,
     ]
   );

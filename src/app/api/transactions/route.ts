@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction, ensureSheetStructure } from '@/lib/google/sheets';
+import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction, ensureSheetStructure, normalizeDateString, normalizeTimeString } from '@/lib/google/sheets';
 import { Transaction, DashboardSummary } from '@/types';
 
 export async function GET() {
@@ -125,8 +125,8 @@ export async function POST(req: Request) {
     }
 
     const now = new Date();
-    const dateStr = body.date || now.toISOString().split('T')[0];
-    const timeStr = body.time || now.toTimeString().split(' ')[0];
+    const dateStr = normalizeDateString(body.date || now.toISOString().split('T')[0]);
+    const timeStr = normalizeTimeString(body.time || now.toTimeString().split(' ')[0]);
 
     const tx: Transaction = {
       id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -196,8 +196,8 @@ export async function PATCH(req: Request) {
         category,
         account,
         note,
-        date,
-        time,
+        date: date !== undefined ? normalizeDateString(date) : undefined,
+        time: time !== undefined ? normalizeTimeString(time) : undefined,
       });
 
       if (!result.success) {

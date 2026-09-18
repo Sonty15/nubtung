@@ -65,13 +65,20 @@ export async function POST(req: Request) {
       account = 'K PLUS';
     }
 
-    // 3. Self-Transfer Detection (โอนเงินระหว่าง 2 บัญชีนี้)
+    // 3. Self-Transfer Detection (โอนเงินระหว่าง 2 บัญชีนี้ หรือโอนเข้าเป๋าตังตัวเอง)
     const ownNamesConfig = process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot';
     const ownNames = ownNamesConfig.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
-    const isSelfName = ownNames.some(name => text.toLowerCase().includes(name));
+    // Self-transfer happens when:
+    // a) Both registered accounts (K PLUS and Make) are involved
+    // b) Or recipient explicitly mentions user's own name/account or Paotang G-Wallet
     const isBothAccounts = hasKplus && hasMake;
-    const isSelfTransfer = isBothAccounts || isSelfName;
+    const isSelfReceiver = ownNames.some(name => {
+      const rx = new RegExp(`(?:ไปยัง|โอนให้|เข้าบัญชี|เข้ากระเป๋า|to)\\s*[^\\n]*?${name}`, 'i');
+      return rx.test(text);
+    }) || /โอนเข้าเป๋าตัง|g-wallet/i.test(text);
+
+    const isSelfTransfer = isBothAccounts || isSelfReceiver;
 
     // Determine Transaction Type
     let type: TransactionType = 'EXPENSE';

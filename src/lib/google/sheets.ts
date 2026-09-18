@@ -57,6 +57,46 @@ const DEFAULT_CATEGORIES = [
   'อื่นๆ',
 ];
 
+export function normalizeDateString(dateStr?: string): string {
+  if (!dateStr) return '';
+  const clean = dateStr.trim();
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(clean)) {
+    const [y, m, d] = clean.split('-');
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) {
+    const [d, m, y] = clean.split('/');
+    let year = parseInt(y, 10);
+    if (year > 2400) year -= 543;
+    return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return clean;
+}
+
+export function normalizeTimeString(timeStr?: string): string {
+  if (!timeStr) return '00:00:00';
+  const clean = timeStr.trim();
+  if (!clean) return '00:00:00';
+
+  const isPM = /pm/i.test(clean);
+  const isAM = /am/i.test(clean);
+  const numOnly = clean.replace(/[^\d:]/g, '');
+  const parts = numOnly.split(':');
+
+  let h = parseInt(parts[0] || '0', 10);
+  let m = parseInt(parts[1] || '0', 10);
+  let s = parseInt(parts[2] || '0', 10);
+
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+
+  const hh = String(h).padStart(2, '0');
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+
+  return `${hh}:${mm}:${ss}`;
+}
+
 export async function getSheetsClient() {
   const auth = getGoogleAuth();
   return google.sheets({ version: 'v4', auth });
@@ -238,9 +278,12 @@ export async function appendTransactionRow(tx: Transaction) {
     ? `=HYPERLINK("${tx.slipUrl}", "🖼️ ดูสลิป")`
     : '-';
 
+  const cleanDate = normalizeDateString(tx.date);
+  const cleanTime = normalizeTimeString(tx.time);
+
   const row = [
-    tx.date,
-    tx.time,
+    cleanDate,
+    cleanTime,
     typeLabel,
     tx.amount,
     tx.category,
@@ -286,7 +329,24 @@ export async function appendTransactionRows(txs: Transaction[]) {
     return;
   }
 
-  const rows = validTxs.map(tx => {
+  // Deduplicate within the batch itself by (date, time, amount, account)
+  const batchSignatures = new Set<string>();
+  const dedupedTxs: Transaction[] = [];
+  for (const tx of validTxs) {
+    const cDate = normalizeDateString(tx.date);
+    const cTime = normalizeTimeString(tx.time);
+    const sig = `${cDate}|${cTime}|${tx.amount}|${tx.account}`;
+    if (batchSignatures.has(sig)) {
+      console.log(`[Sheets] Duplicate transaction in batch detected, skipping: ${sig}`);
+      continue;
+    }
+    batchSignatures.add(sig);
+    dedupedTxs.push(tx);
+  }
+
+  if (dedupedTxs.length === 0) return;
+
+  const rows = dedupedTxs.map(tx => {
     let typeLabel: string = tx.type;
     if (tx.type === 'EXPENSE') typeLabel = '🔴 รายจ่าย';
     else if (tx.type === 'INCOME') typeLabel = '🟢 รายรับ';
@@ -296,9 +356,12 @@ export async function appendTransactionRows(txs: Transaction[]) {
       ? `=HYPERLINK("${tx.slipUrl}", "🖼️ ดูสลิป")`
       : '-';
 
+    const cleanDate = normalizeDateString(tx.date);
+    const cleanTime = normalizeTimeString(tx.time);
+
     return [
-      tx.date,
-      tx.time,
+      cleanDate,
+      cleanTime,
       typeLabel,
       tx.amount,
       tx.category,
@@ -357,10 +420,13 @@ export async function getAllTransactions(): Promise<Transaction[]> {
       slipUrl = `https://drive.google.com/file/d/${String(r[9]).trim()}/view`;
     }
 
+    const cleanDate = normalizeDateString(r[0] || '');
+    const cleanTime = normalizeTimeString(r[1] || '');
+
     transactions.push({
       id: r[8] || `tx_${i + 1}`,
-      date: r[0] || '',
-      time: r[1] || '',
+      date: cleanDate,
+      time: cleanTime,
       type: parsedType,
       amount,
       category: r[4] || 'อื่นๆ',
@@ -369,14 +435,19 @@ export async function getAllTransactions(): Promise<Transaction[]> {
       slipUrl,
       driveFileId: r[9] || undefined,
       source: (r[10] as any) || 'MANUAL',
-      createdAt: `${r[0]}T${r[1] || '00:00:00'}`,
+      createdAt: `${cleanDate}T${cleanTime}`,
     });
   }
 
-  // Sort descending by date & time
+  // Sort strictly descending by date & time (newest / latest transactions first)
   transactions.sort((a, b) => {
-    const dtA = `${a.date} ${a.time}`;
-    const dtB = `${b.date} ${b.time}`;
+    const dtA = `${a.date}T${a.time}`;
+    const dtB = `${b.date}T${b.time}`;
+    const timeA = new Date(dtA).getTime();
+    const timeB = new Date(dtB).getTime();
+    if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+      return timeB - timeA;
+    }
     return dtB.localeCompare(dtA);
   });
 
@@ -514,8 +585,8 @@ export async function updateManualTransaction(tx: {
     else if (tx.type === 'TRANSFER') typeLabel = '🔄 โอนย้ายเงิน';
   }
 
-  const updatedDate = tx.date ?? existingRow[0];
-  const updatedTime = tx.time ?? existingRow[1];
+  const updatedDate = normalizeDateString(tx.date ?? existingRow[0]);
+  const updatedTime = normalizeTimeString(tx.time ?? existingRow[1]);
   const updatedAmount = tx.amount !== undefined ? tx.amount : existingRow[3];
   const updatedCategory = tx.category ?? existingRow[4];
   const updatedAccount = tx.account ?? existingRow[5];

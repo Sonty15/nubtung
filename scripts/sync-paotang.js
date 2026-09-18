@@ -40,11 +40,13 @@ async function runPaotangSync() {
 
   const res = await drive.files.list({
     q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
-    fields: 'files(id, name, mimeType, webViewLink, createdTime)',
+    fields: 'files(id, name, mimeType, webViewLink, createdTime, md5Checksum)',
     pageSize: 100,
   });
 
-  const files = (res.data.files || []).filter(f => !processedSlips.has(f.id));
+  const files = (res.data.files || [])
+    .filter(f => f.name && !f.name.startsWith('.') && !f.name.includes('.trashed'))
+    .filter(f => !processedSlips.has(f.id));
   console.log(`[Paotang Sync] 🚀 Found ${files.length} unprocessed Paotang slips to process...`);
 
   if (files.length === 0) {

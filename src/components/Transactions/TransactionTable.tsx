@@ -66,9 +66,9 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
   const [manualNote, setManualNote] = useState('');
   const [isSavingManual, setIsSavingManual] = useState(false);
 
-  // Filter transactions
+  // Filter and sort transactions (strictly latest first)
   const filtered = useMemo(() => {
-    return transactions.filter((tx) => {
+    const list = transactions.filter((tx) => {
       const matchSearch =
         (tx.note || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (tx.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -78,6 +78,17 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       const matchAccount = selectedAccount === 'ALL' || tx.account === selectedAccount;
 
       return matchSearch && matchType && matchAccount;
+    });
+
+    return list.sort((a, b) => {
+      const dtA = `${a.date}T${a.time}`;
+      const dtB = `${b.date}T${b.time}`;
+      const timeA = new Date(dtA).getTime();
+      const timeB = new Date(dtB).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return dtB.localeCompare(dtA);
     });
   }, [transactions, searchTerm, selectedType, selectedAccount]);
 

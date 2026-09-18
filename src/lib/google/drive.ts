@@ -12,6 +12,7 @@ export interface DriveFileItem {
   mimeType: string;
   webViewLink?: string;
   createdTime?: string;
+  md5Checksum?: string;
 }
 
 /**
@@ -27,14 +28,17 @@ export async function listSlipsInFolder(folderId: string): Promise<DriveFileItem
   while (true) {
     const res: any = await drive.files.list({
       q: query,
-      fields: 'nextPageToken, files(id, name, mimeType, webViewLink, createdTime)',
+      fields: 'nextPageToken, files(id, name, mimeType, webViewLink, createdTime, md5Checksum)',
       orderBy: 'createdTime desc',
       pageSize: 1000,
       pageToken: pageToken || undefined,
     });
 
     if (res.data && res.data.files) {
-      allFiles.push(...(res.data.files as DriveFileItem[]));
+      const validFiles = (res.data.files as DriveFileItem[]).filter(
+        file => file.name && !file.name.startsWith('.') && !file.name.includes('.trashed')
+      );
+      allFiles.push(...validFiles);
     }
 
     if (!res.data.nextPageToken) {

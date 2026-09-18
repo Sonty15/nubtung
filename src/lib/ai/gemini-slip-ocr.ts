@@ -1,5 +1,20 @@
 import { GoogleGenAI } from '@google/genai';
-import { SlipAnalysisResult, TransactionType } from '@/types';
+import type { SlipAnalysisResult, TransactionType } from '@/types';
+import { normalizeDateString, normalizeTimeString } from '@/lib/google/sheets';
+
+export interface RawSlipOcrResult {
+  isReceiveQrOrRequest?: boolean;
+  amount?: number | string;
+  date?: string;
+  time?: string;
+  senderName?: string | null;
+  receiverName?: string | null;
+  receiverAccount?: string | null;
+  themeColor?: string | null;
+  pocketName?: string | null;
+  suggestedCategory?: string | null;
+  note?: string | null;
+}
 
 function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -7,6 +22,123 @@ function getGeminiClient() {
     throw new Error('GEMINI_API_KEY is not configured in environment variables');
   }
   return new GoogleGenAI({ apiKey });
+}
+
+export function resolveSlipTransaction(
+  parsed: RawSlipOcrResult,
+  accountContext: string
+): SlipAnalysisResult {
+  // Reject QR Code Generation / Receive screens
+  if (parsed.isReceiveQrOrRequest) {
+    return {
+      amount: 0,
+      date: parsed.date || new Date().toISOString().split('T')[0],
+      time: parsed.time || '12:00:00',
+      category: 'อื่นๆ',
+      note: 'QR รับเงิน (ข้ามการบันทึก)',
+      isSelfTransfer: false,
+      type: 'EXPENSE',
+    };
+  }
+
+  const isMakeAccount = accountContext.toLowerCase().includes('make');
+  const sender = (parsed.senderName || '').toLowerCase();
+  const receiver = (parsed.receiverName || '').toLowerCase();
+  const note = (parsed.note || '').toLowerCase();
+  const paotangAccountNo = (process.env.PAOTANG_ACCOUNT_NO || '9289').toLowerCase();
+  const ownAccountNames = (process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot,9289')
+    .toLowerCase()
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const isUserSender = ownAccountNames.some(name => sender.includes(name));
+  const isUserReceiver = ownAccountNames.some(name => receiver.includes(name));
+
+  const receiverAcc = (parsed.receiverAccount || '').toLowerCase();
+  const isPaotangWalletTransfer =
+    receiverAcc.includes(paotangAccountNo) ||
+    receiver.includes(paotangAccountNo) ||
+    receiver.includes('ktb g-wallet') ||
+    receiver.includes('g-wallet') ||
+    note.includes(paotangAccountNo) ||
+    note.includes('ktb g-wallet') ||
+    note.includes('โอนเข้าเป๋าตัง');
+
+  // 1. Incoming Transfer: Someone else sends money to user -> INCOME
+  const isIncomingTransfer = isUserReceiver && !isUserSender && sender.length > 0 && !isPaotangWalletTransfer;
+
+  // 2. Self Transfer: User transfers money to himself or to own Paotang G-Wallet -> TRANSFER
+  const isSelfTransfer = (isUserSender && isUserReceiver) || isPaotangWalletTransfer;
+
+  // Resolve category by Color Theme for Make by KBank
+  let category = parsed.suggestedCategory || 'อื่นๆ';
+  const themeColor = (parsed.themeColor || '').toUpperCase();
+
+  if (isMakeAccount) {
+    if (themeColor === 'ORANGE') {
+      category = 'อาหารและเครื่องดื่ม';
+    } else if (themeColor === 'RED') {
+      category = 'ช้อปปิ้ง';
+    } else if (themeColor === 'YELLOW' || themeColor === 'DARK_GREEN') {
+      category = 'การเดินทาง/ค่าน้ำมัน';
+    } else if (themeColor === 'PINK') {
+      category = 'ของใช้ในบ้าน/ซูเปอร์';
+    } else if (themeColor === 'PURPLE' || themeColor === 'LIGHT_GREEN') {
+      category = 'สาธารณูปโภค (น้ำ/ไฟ/เน็ต)';
+    }
+  }
+
+  // Default: EXPENSE (เงินออกบัญชี)
+  let transactionType: TransactionType = 'EXPENSE';
+
+  if (isIncomingTransfer) {
+    transactionType = 'INCOME';
+    category = 'เงินเดือน/รายรับ';
+  } else if (isSelfTransfer) {
+    transactionType = 'TRANSFER';
+    category = 'โอนระหว่างบัญชี';
+  } else {
+    // If NOT a self-transfer, category MUST NOT be 'โอนระหว่างบัญชี'
+    if (category === 'โอนระหว่างบัญชี') {
+      category = 'อื่นๆ';
+    }
+  }
+
+  // Determine note:
+  // If parsed.note is generic (e.g. 'โอนระหว่างบัญชี', 'โอนเงิน', or mentions sender name),
+  // prefer the receiver's name so user clearly knows whom they paid!
+  const isGenericNote =
+    !parsed.note ||
+    /โอนเงิน|โอนระหว่างบัญชี|สลิปโอนเงิน|รายการโอน/i.test(parsed.note) ||
+    (parsed.senderName && parsed.note.trim() === parsed.senderName.trim()) ||
+    (parsed.senderName && parsed.note.toLowerCase().includes(`โอนจาก ${parsed.senderName.toLowerCase()}`));
+
+  let finalNote = parsed.note;
+  if (isIncomingTransfer) {
+    finalNote = parsed.note && !isGenericNote ? parsed.note : `รับโอนจาก ${parsed.senderName || 'บุคคลอื่น'}`;
+  } else if (isSelfTransfer) {
+    finalNote = parsed.note || (isPaotangWalletTransfer ? 'โอนเข้าเป๋าตัง (G-Wallet)' : 'โอนระหว่างบัญชี');
+  } else {
+    if ((isGenericNote || !finalNote) && parsed.receiverName) {
+      finalNote = parsed.receiverName;
+    } else if (!finalNote) {
+      finalNote = parsed.receiverName || 'สลิปโอนเงิน';
+    }
+  }
+
+  return {
+    amount: Number(parsed.amount) || 0,
+    date: normalizeDateString(parsed.date) || new Date().toISOString().split('T')[0],
+    time: normalizeTimeString(parsed.time) || '12:00:00',
+    senderName: parsed.senderName || undefined,
+    receiverName: parsed.receiverName || undefined,
+    receiverAccount: parsed.receiverAccount || undefined,
+    category,
+    note: finalNote || 'สลิปโอนเงิน',
+    isSelfTransfer,
+    type: transactionType,
+  };
 }
 
 export async function analyzeSlipImage(
@@ -51,6 +183,11 @@ Special Transfer Rules:
   This is a self-transfer between the user's accounts.
   - Set "suggestedCategory": "โอนระหว่างบัญชี"
   - Set "note": "โอนเข้าเป๋าตัง (G-Wallet)"
+- Transfers to OTHER people, merchants, or PromptPay (โอนเงินให้ผู้อื่น / ร้านค้า):
+  This is an EXPENSE, NOT a self-transfer!
+  - NEVER set "suggestedCategory" to "โอนระหว่างบัญชี" for transfers to other people! "โอนระหว่างบัญชี" is STRICTLY for internal self-transfers between user's own accounts.
+  - Choose an appropriate category (อาหารและเครื่องดื่ม, ช้อปปิ้ง, etc.) or default to "อื่นๆ" if unknown.
+  - Set "note" to the receiver's name.
 
 Extract the following information and output strictly in JSON format matching the schema below:
 
@@ -59,13 +196,13 @@ JSON Schema:
   "isReceiveQrOrRequest": boolean (true if this is a QR code generation / payment request screen like "THAI QR PAYMENT" / "สามารถสแกน QR เพื่อโอนเงินเข้าบัญชี" / promptpay QR for someone to scan, and NOT an executed transfer slip),
   "amount": number (e.g. 150.00),
   "date": "YYYY-MM-DD" (e.g. "2026-09-02"),
-  "time": "HH:mm:ss" (e.g. "13:30:00"),
+  "time": "HH:mm:ss" strictly 2-digit zero-padded 24-hour time (e.g. "09:30:00", "13:30:00", never "9:30:00"),
   "senderName": "Name of sender" or null,
   "receiverName": "Name of receiver / store / PromptPay" or null,
   "receiverAccount": "Account number or PromptPay number if visible" or null,
   "themeColor": "One of: ORANGE, RED, YELLOW, DARK_GREEN, PINK, PURPLE, LIGHT_GREEN, STANDARD",
   "pocketName": "Name of the cloud pocket if written on slip" or null,
-  "suggestedCategory": "One of: อาหารและเครื่องดื่ม, ของใช้ในบ้าน/ซูเปอร์, การเดินทาง/ค่าน้ำมัน, ช้อปปิ้ง, สาธารณูปโภค (น้ำ/ไฟ/เน็ต), บันเทิง/สตรีมมิ่ง, สุขภาพ/ยา, โอนระหว่างบัญชี, อื่นๆ",
+  "suggestedCategory": "One of: อาหารและเครื่องดื่ม, ของใช้ในบ้าน/ซูเปอร์, การเดินทาง/ค่าน้ำมัน, ช้อปปิ้ง, สาธารณูปโภค (น้ำ/ไฟ/เน็ต), บันเทิง/สตรีมมิ่ง, สุขภาพ/ยา, อื่นๆ (Note: use 'โอนระหว่างบัญชี' ONLY for self-transfer to own Paotang G-Wallet)",
   "note": "Short description of transaction or receiver name"
 }
 
@@ -100,98 +237,13 @@ Important Instructions:
   const rawText = response.text?.trim() || '{}';
   const cleanedJson = rawText.replace(/^```(json)?/i, '').replace(/```$/i, '').trim();
 
-  let parsed: any;
+  let parsed: RawSlipOcrResult;
   try {
     parsed = JSON.parse(cleanedJson);
   } catch (err) {
     throw new Error(`Failed to parse AI response as JSON: ${rawText}`);
   }
 
-  // Reject QR Code Generation / Receive screens
-  if (parsed.isReceiveQrOrRequest) {
-    return {
-      amount: 0,
-      date: parsed.date || new Date().toISOString().split('T')[0],
-      time: parsed.time || '12:00:00',
-      category: 'อื่นๆ',
-      note: 'QR รับเงิน (ข้ามการบันทึก)',
-      isSelfTransfer: false,
-      type: 'EXPENSE',
-    };
-  }
-
-  const sender = (parsed.senderName || '').toLowerCase();
-  const receiver = (parsed.receiverName || '').toLowerCase();
-  const note = (parsed.note || '').toLowerCase();
-  const paotangAccountNo = (process.env.PAOTANG_ACCOUNT_NO || '9289').toLowerCase();
-  const ownAccountNames = (process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot,9289')
-    .toLowerCase()
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  const isUserSender = ownAccountNames.some(name => sender.includes(name));
-  const isUserReceiver = ownAccountNames.some(name => receiver.includes(name) || (note.includes(name) && !note.includes('ร้าน')));
-
-  const receiverAcc = (parsed.receiverAccount || '').toLowerCase();
-  const isPaotangWalletTransfer =
-    receiverAcc.includes(paotangAccountNo) ||
-    receiver.includes(paotangAccountNo) ||
-    note.includes(paotangAccountNo) ||
-    receiver.includes('ktb g-wallet') ||
-    receiver.includes('g-wallet') ||
-    note.includes('ktb g-wallet') ||
-    note.includes('โอนเข้าเป๋าตัง');
-
-  // 1. Incoming Transfer: Someone else sends money to user -> INCOME
-  const isIncomingTransfer = isUserReceiver && !isUserSender && sender.length > 0 && !isPaotangWalletTransfer;
-
-  // 2. Self Transfer: User transfers money to himself or to own Paotang G-Wallet -> TRANSFER
-  const isSelfTransfer = (isUserSender && isUserReceiver) || isPaotangWalletTransfer;
-
-  // Resolve category by Color Theme for Make by KBank
-  let category = parsed.suggestedCategory || 'อื่นๆ';
-  const themeColor = (parsed.themeColor || '').toUpperCase();
-
-  if (isMakeAccount) {
-    if (themeColor === 'ORANGE') {
-      category = 'อาหารและเครื่องดื่ม';
-    } else if (themeColor === 'RED') {
-      category = 'ช้อปปิ้ง';
-    } else if (themeColor === 'YELLOW') {
-      category = 'การเดินทาง/ค่าน้ำมัน';
-    } else if (themeColor === 'DARK_GREEN') {
-      category = 'การเดินทาง/ค่าน้ำมัน';
-    } else if (themeColor === 'PINK') {
-      category = 'ของใช้ในบ้าน/ซูเปอร์';
-    } else if (themeColor === 'PURPLE') {
-      category = 'สาธารณูปโภค (น้ำ/ไฟ/เน็ต)';
-    } else if (themeColor === 'LIGHT_GREEN') {
-      category = 'สาธารณูปโภค (น้ำ/ไฟ/เน็ต)';
-    }
-  }
-
-  // Default: EXPENSE (เงินออกบัญชี)
-  let transactionType: TransactionType = 'EXPENSE';
-
-  if (isIncomingTransfer) {
-    transactionType = 'INCOME';
-    category = 'เงินเดือน/รายรับ';
-  } else if (isSelfTransfer) {
-    transactionType = 'TRANSFER';
-    category = 'โอนระหว่างบัญชี';
-  }
-
-  return {
-    amount: Number(parsed.amount) || 0,
-    date: parsed.date || new Date().toISOString().split('T')[0],
-    time: parsed.time || '12:00:00',
-    senderName: parsed.senderName || undefined,
-    receiverName: parsed.receiverName || undefined,
-    receiverAccount: parsed.receiverAccount || undefined,
-    category,
-    note: parsed.note || (isIncomingTransfer ? `รับโอนจาก ${parsed.senderName}` : parsed.receiverName) || 'สลิปโอนเงิน',
-    isSelfTransfer,
-    type: transactionType,
-  };
+  return resolveSlipTransaction(parsed, accountContext);
 }
+

@@ -55,49 +55,61 @@ export default function DashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  // Filter transactions based on active Period Mode and selected Date
+  // Filter and sort transactions based on active Period Mode and selected Date (strictly latest first)
   const filteredTransactions = useMemo(() => {
+    let list: Transaction[] = [];
     if (periodMode === 'ALL') {
-      return allTransactions;
+      list = [...allTransactions];
+    } else {
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const date = selectedDate.getDate();
+
+      list = allTransactions.filter((tx) => {
+        if (!tx.date) return false;
+        const [txY, txM, txD] = tx.date.split('-').map(Number);
+        if (!txY || !txM || !txD) return false;
+
+        const txDate = new Date(txY, txM - 1, txD);
+
+        if (periodMode === 'YEAR') {
+          return txY === year;
+        }
+        if (periodMode === 'MONTH') {
+          if (useSalaryCycle) {
+            const { startDate, endDate } = getSalaryCycleRange(selectedDate, 26);
+            return txDate >= startDate && txDate <= endDate;
+          }
+          return txY === year && txM - 1 === month;
+        }
+        if (periodMode === 'WEEK') {
+          const startOfWeek = new Date(selectedDate);
+          const day = startOfWeek.getDay() || 7;
+          startOfWeek.setDate(startOfWeek.getDate() - day + 1);
+          startOfWeek.setHours(0, 0, 0, 0);
+
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          endOfWeek.setHours(23, 59, 59, 999);
+
+          return txDate >= startOfWeek && txDate <= endOfWeek;
+        }
+        if (periodMode === 'DAY') {
+          return txY === year && txM - 1 === month && txD === date;
+        }
+        return true;
+      });
     }
 
-    const year = selectedDate.getFullYear();
-    const month = selectedDate.getMonth();
-    const date = selectedDate.getDate();
-
-    return allTransactions.filter((tx) => {
-      if (!tx.date) return false;
-      const [txY, txM, txD] = tx.date.split('-').map(Number);
-      if (!txY || !txM || !txD) return false;
-
-      const txDate = new Date(txY, txM - 1, txD);
-
-      if (periodMode === 'YEAR') {
-        return txY === year;
+    return list.sort((a, b) => {
+      const dtA = `${a.date}T${a.time}`;
+      const dtB = `${b.date}T${b.time}`;
+      const timeA = new Date(dtA).getTime();
+      const timeB = new Date(dtB).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+        return timeB - timeA;
       }
-      if (periodMode === 'MONTH') {
-        if (useSalaryCycle) {
-          const { startDate, endDate } = getSalaryCycleRange(selectedDate, 26);
-          return txDate >= startDate && txDate <= endDate;
-        }
-        return txY === year && txM - 1 === month;
-      }
-      if (periodMode === 'WEEK') {
-        const startOfWeek = new Date(selectedDate);
-        const day = startOfWeek.getDay() || 7;
-        startOfWeek.setDate(startOfWeek.getDate() - day + 1);
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        endOfWeek.setHours(23, 59, 59, 999);
-
-        return txDate >= startOfWeek && txDate <= endOfWeek;
-      }
-      if (periodMode === 'DAY') {
-        return txY === year && txM - 1 === month && txD === date;
-      }
-      return true;
+      return dtB.localeCompare(dtA);
     });
   }, [allTransactions, periodMode, selectedDate, useSalaryCycle]);
 
@@ -144,7 +156,12 @@ export default function DashboardPage() {
       const monthMap = new Map<string, { income: number; expense: number }>();
 
       // Sort chronological
-      const sorted = [...filteredTransactions].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      const sorted = [...filteredTransactions].sort((a, b) => {
+        const timeA = new Date(`${a.date}T${a.time}`).getTime();
+        const timeB = new Date(`${b.date}T${b.time}`).getTime();
+        if (!isNaN(timeA) && !isNaN(timeB)) return timeA - timeB;
+        return `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`);
+      });
 
       for (const tx of sorted) {
         const [y, m] = tx.date.split('-');
@@ -166,7 +183,12 @@ export default function DashboardPage() {
     } else {
       // Group by Day (e.g. 1 ก.ย., 2 ก.ย., ...)
       const dayMap = new Map<string, { income: number; expense: number }>();
-      const sorted = [...filteredTransactions].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      const sorted = [...filteredTransactions].sort((a, b) => {
+        const timeA = new Date(`${a.date}T${a.time}`).getTime();
+        const timeB = new Date(`${b.date}T${b.time}`).getTime();
+        if (!isNaN(timeA) && !isNaN(timeB)) return timeA - timeB;
+        return `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`);
+      });
 
       for (const tx of sorted) {
         const [, m, d] = tx.date.split('-');
