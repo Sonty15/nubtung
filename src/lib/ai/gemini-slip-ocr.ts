@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
-import type { SlipAnalysisResult, TransactionType } from '@/types';
-import { normalizeDateString, normalizeTimeString } from '@/lib/google/sheets';
+import type { SlipAnalysisResult, TransactionType } from '../../types/index.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { normalizeDateString, normalizeTimeString } from '../utils/date.ts';
 
 export interface RawSlipOcrResult {
   isReceiveQrOrRequest?: boolean;
@@ -46,30 +47,32 @@ export function resolveSlipTransaction(
   const receiver = (parsed.receiverName || '').toLowerCase();
   const note = (parsed.note || '').toLowerCase();
   const paotangAccountNo = (process.env.PAOTANG_ACCOUNT_NO || '9289').toLowerCase();
-  const ownAccountNames = (process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot,9289')
+  // Filter out pure numbers so recipient account numbers never accidentally match user's name
+  const ownAccountNames = (process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot')
     .toLowerCase()
     .split(',')
     .map(s => s.trim())
-    .filter(Boolean);
+    .filter(s => s && !/^\d+$/.test(s));
 
   const isUserSender = ownAccountNames.some(name => sender.includes(name));
   const isUserReceiver = ownAccountNames.some(name => receiver.includes(name));
 
   const receiverAcc = (parsed.receiverAccount || '').toLowerCase();
   const isPaotangWalletTransfer =
-    receiverAcc.includes(paotangAccountNo) ||
-    receiver.includes(paotangAccountNo) ||
+    ((receiverAcc.includes(paotangAccountNo) || receiver.includes(paotangAccountNo) || note.includes(paotangAccountNo)) &&
+      (receiver.includes('g-wallet') || receiver.includes('เป๋าตัง') || receiver.includes('ktb') || note.includes('เป๋าตัง') || note.includes('g-wallet'))) ||
     receiver.includes('ktb g-wallet') ||
     receiver.includes('g-wallet') ||
-    note.includes(paotangAccountNo) ||
-    note.includes('ktb g-wallet') ||
     note.includes('โอนเข้าเป๋าตัง');
 
+  // Lottery / Government Lottery is an EXPENSE, never a transfer
+  const isLottery = /สลาก|สลากดิจิทัล|หวย/i.test(receiver) || /สลาก|สลากดิจิทัล|หวย/i.test(note);
+
   // 1. Incoming Transfer: Someone else sends money to user -> INCOME
-  const isIncomingTransfer = isUserReceiver && !isUserSender && sender.length > 0 && !isPaotangWalletTransfer;
+  const isIncomingTransfer = isUserReceiver && !isUserSender && sender.length > 0 && !isPaotangWalletTransfer && !isLottery;
 
   // 2. Self Transfer: User transfers money to himself or to own Paotang G-Wallet -> TRANSFER
-  const isSelfTransfer = (isUserSender && isUserReceiver) || isPaotangWalletTransfer;
+  const isSelfTransfer = !isLottery && ((isUserSender && isUserReceiver) || isPaotangWalletTransfer);
 
   // Resolve category by Color Theme for Make by KBank
   let category = parsed.suggestedCategory || 'อื่นๆ';
@@ -183,6 +186,10 @@ Special Transfer Rules:
   This is a self-transfer between the user's accounts.
   - Set "suggestedCategory": "โอนระหว่างบัญชี"
   - Set "note": "โอนเข้าเป๋าตัง (G-Wallet)"
+- Buying Digital Lottery / สลากดิจิทัล (ซื้อสลากหกหลักแบบดิจิทัล, สำนักงานสลากกินแบ่งรัฐบาล):
+  This is strictly an EXPENSE, NOT a self-transfer!
+  - Set "suggestedCategory": "อื่นๆ"
+  - Set "note": "ซื้อสลากหกหลักแบบดิจิทัล"
 - Transfers to OTHER people, merchants, or PromptPay (โอนเงินให้ผู้อื่น / ร้านค้า):
   This is an EXPENSE, NOT a self-transfer!
   - NEVER set "suggestedCategory" to "โอนระหว่างบัญชี" for transfers to other people! "โอนระหว่างบัญชี" is STRICTLY for internal self-transfers between user's own accounts.

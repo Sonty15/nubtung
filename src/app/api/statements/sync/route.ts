@@ -1,14 +1,26 @@
 import { NextResponse } from 'next/server';
-import { syncStatementsFromDrive } from '@/lib/statement/parser';
+import { syncStatementsFromEmail } from '@/lib/statement/email-sync';
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    const result = await syncStatementsFromDrive();
+    let forceRefresh = false;
+    try {
+      const url = new URL(req.url);
+      forceRefresh = url.searchParams.get('force') === 'true';
+      if (!forceRefresh) {
+        const body = await req.json().catch(() => ({}));
+        forceRefresh = Boolean(body?.force);
+      }
+    } catch {
+      // ignore
+    }
+
+    const result = await syncStatementsFromEmail(forceRefresh);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('Statement sync error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to sync statements from Google Drive' },
+      { error: error.message || 'Failed to sync statements from email' },
       { status: 500 }
     );
   }

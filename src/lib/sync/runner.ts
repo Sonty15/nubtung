@@ -2,7 +2,7 @@ import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
 import { appendTransactionRows, ensureSheetStructure, getExistingDriveFileIds } from '@/lib/google/sheets';
 import { markSlipProcessed, markSlipsProcessedBatch, getProcessedSlipIds } from '@/lib/db';
-import { syncStatementsFromDrive } from '@/lib/statement/parser';
+import { syncStatementsFromEmail } from '@/lib/statement/email-sync';
 import { Transaction } from '@/types';
 
 function chunkArray<T>(array: T[], chunkSize: number): T[][] {
@@ -136,12 +136,12 @@ export async function executeFullSync() {
     }
   }
 
-  // 2. Sync Statements
+  // 2. Sync Statements from Email (with Slip-First Deduplication)
   let stmResult: any = { skipped: true };
   try {
-    stmResult = await syncStatementsFromDrive();
+    stmResult = await syncStatementsFromEmail();
   } catch (err: any) {
-    console.error('[Auto-Sync] Error syncing statements:', err.message);
+    console.error('[Auto-Sync] Error syncing statements from email:', err.message);
   }
 
   const durationMs = Date.now() - startTime;

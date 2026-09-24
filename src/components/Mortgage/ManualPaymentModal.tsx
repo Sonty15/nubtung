@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, X, Building2, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
+import { getBangkokDateString } from '@/lib/utils/date';
 
 interface ManualPaymentModalProps {
   isOpen?: boolean;
@@ -22,7 +23,7 @@ export default function ManualPaymentModal({
   defaultAccountId = '011690010474',
 }: ManualPaymentModalProps) {
   const [accountId, setAccountId] = useState(defaultAccountId);
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [paymentDate, setPaymentDate] = useState(() => getBangkokDateString());
   const [installmentNo, setInstallmentNo] = useState('');
   const [totalPaid, setTotalPaid] = useState('');
   const [principal, setPrincipal] = useState('');

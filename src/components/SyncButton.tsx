@@ -43,16 +43,18 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
       }
 
       const slipProcessed = slipData.stats?.processed ?? 0;
-      const stmTotal = stmData.total ?? 0;
+      const stmAdded = stmData.addedFromStatement ?? 0;
+      const stmMatched = stmData.matchedWithSlip ?? 0;
 
-      if (slipProcessed > 0 && stmTotal > 0) {
-        setResultMessage(`ซิงค์สำเร็จ! (พบสลิปใหม่ ${slipProcessed} รายการ, Statement ${stmTotal} รายการ)`);
-      } else if (slipProcessed > 0) {
-        setResultMessage(`ซิงค์สำเร็จ! (เพิ่มสลิปใหม่ ${slipProcessed} รายการ)`);
-      } else if (stmTotal > 0) {
-        setResultMessage(`ซิงค์สำเร็จ! (อัปเดต Statement ${stmTotal} รายการ)`);
+      const parts: string[] = [];
+      if (slipProcessed > 0) parts.push(`สลิปใหม่ ${slipProcessed} รายการ`);
+      if (stmMatched > 0) parts.push(`Statement ตรงกับสลิป ${stmMatched} รายการ`);
+      if (stmAdded > 0) parts.push(`Statement ใหม่ ${stmAdded} รายการ`);
+
+      if (parts.length > 0) {
+        setResultMessage(`ซิงค์สำเร็จ! (${parts.join(', ')})`);
       } else {
-        setResultMessage('ข้อมูลเป็นปัจจุบันแล้ว (ไม่มีสลิปหรือ Statement ใหม่ใน Drive)');
+        setResultMessage('ข้อมูลเป็นปัจจุบันแล้ว (ไม่มีสลิปหรือ Statement ใหม่)');
       }
 
       if (onSyncComplete) onSyncComplete();

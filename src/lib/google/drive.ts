@@ -74,3 +74,67 @@ export async function downloadFileAsBase64(fileId: string): Promise<{ base64: st
     mimeType,
   };
 }
+
+/**
+ * Returns a Google Drive client authenticated via OAuth 2.0 (using user's personal Drive quota),
+ * falling back to Service Account if OAuth is not configured.
+ */
+export function getDriveOAuthClient() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+  if (clientId && clientSecret && refreshToken) {
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    return google.drive({ version: 'v3', auth: oauth2Client });
+  }
+
+  // Fallback to Service Account
+  const auth = getGoogleAuth();
+  return google.drive({ version: 'v3', auth });
+}
+
+/**
+ * Uploads a slip image file to Google Drive using personal OAuth quota
+ */
+export async function uploadSlipToDrive({
+  buffer,
+  filename,
+  mimeType,
+  folderId = process.env.GOOGLE_DRIVE_UPLOAD_FOLDER_ID || '14IP9ywr7z3aa3sllt4HMF-CFA90bKV-x',
+}: {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+  folderId?: string;
+}): Promise<{ id: string; name: string; webViewLink: string }> {
+  const { Readable } = await import('stream');
+  const drive = getDriveOAuthClient();
+
+  const stream = new Readable();
+  stream.push(buffer);
+  stream.push(null);
+
+  const res = await drive.files.create({
+    requestBody: {
+      name: filename,
+      parents: [folderId],
+    },
+    media: {
+      mimeType,
+      body: stream,
+    },
+    fields: 'id, name, webViewLink',
+    supportsAllDrives: true,
+  });
+
+  const fileId = res.data.id || '';
+  const webViewLink = res.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`;
+
+  return {
+    id: fileId,
+    name: res.data.name || filename,
+    webViewLink,
+  };
+}

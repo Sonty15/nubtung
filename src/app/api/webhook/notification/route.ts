@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { appendTransactionRow, ensureSheetStructure } from '@/lib/google/sheets';
 import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
+import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
 
 export async function POST(req: Request) {
   try {
@@ -120,10 +121,9 @@ export async function POST(req: Request) {
       else if (/อาหาร|กาแฟ|cafe|amazon|กะเพรา/i.test(lower)) category = 'อาหารและเครื่องดื่ม';
     }
 
-    // 6. Format Date & Time
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toTimeString().split(' ')[0];
+    // 6. Format Date & Time (UTC+7 Asia/Bangkok)
+    const dateStr = getBangkokDateString();
+    const timeStr = getBangkokTimeString();
 
     const txId = `noti_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
       account,
       note: `LINE แจ้งเตือน: ${text.substring(0, 80)}`,
       source: 'AUTO_SYNC',
-      createdAt: now.toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     // Ensure sheet structure and append

@@ -113,6 +113,8 @@ export async function GET() {
   }
 }
 
+import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -124,9 +126,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const now = new Date();
-    const dateStr = normalizeDateString(body.date || now.toISOString().split('T')[0]);
-    const timeStr = normalizeTimeString(body.time || now.toTimeString().split(' ')[0]);
+    const dateStr = normalizeDateString(body.date || getBangkokDateString());
+    const timeStr = normalizeTimeString(body.time || getBangkokTimeString());
 
     const tx: Transaction = {
       id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -138,8 +139,9 @@ export async function POST(req: Request) {
       account: body.account || 'เงินสด',
       note: body.note || '',
       slipUrl: body.slipUrl || undefined,
+      driveFileId: body.driveFileId || undefined,
       source: 'MANUAL',
-      createdAt: now.toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     await appendTransactionRow(tx);

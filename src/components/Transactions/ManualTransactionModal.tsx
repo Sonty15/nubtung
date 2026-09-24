@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, X, Upload, RefreshCw } from 'lucide-react';
 import { TransactionType } from '@/types';
+import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
 
 interface ManualTransactionModalProps {
   onSuccess: () => void;
@@ -25,7 +26,12 @@ const CATEGORIES = [
 export default function ManualTransactionModal({ onSuccess, isMobileFab = false }: ManualTransactionModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadingSlip, setUploadingSlip] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [slipUrl, setSlipUrl] = useState<string | null>(null);
+  const [driveFileId, setDriveFileId] = useState<string | null>(null);
 
   const [type, setType] = useState<TransactionType>('EXPENSE');
   const [amount, setAmount] = useState('');
@@ -34,7 +40,8 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
   const [fromAccount, setFromAccount] = useState('เงินสด');
   const [toAccount, setToAccount] = useState('K PLUS');
   const [note, setNote] = useState('');
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => getBangkokDateString());
+  const [time, setTime] = useState(() => getBangkokTimeString());
 
   const ACCOUNTS = [
     { id: 'เงินสด', label: '💵 เงินสด (Cash Wallet)', short: 'เงินสด' },
@@ -49,6 +56,43 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
     setFromAccount(from);
     setToAccount(to);
     if (!note) setNote(defaultNote);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingSlip(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/slips/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to upload slip');
+
+      const slip = data.slip;
+      if (slip) {
+        if (slip.amount) setAmount(String(slip.amount));
+        if (slip.date) setDate(slip.date);
+        if (slip.time) setTime(slip.time);
+        if (slip.type) setType(slip.type);
+        if (slip.category) setCategory(slip.category);
+        if (slip.note) setNote(slip.note);
+        if (slip.slipUrl) setSlipUrl(slip.slipUrl);
+        if (slip.driveFileId) setDriveFileId(slip.driveFileId);
+      }
+    } catch (err: any) {
+      setError(err.message || 'อัปโหลดสลิปไม่สำเร็จ');
+    } finally {
+      setUploadingSlip(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,6 +120,9 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
           account: actualAccount,
           note: actualNote,
           date,
+          time,
+          slipUrl: slipUrl || undefined,
+          driveFileId: driveFileId || undefined,
         }),
       });
 
@@ -87,6 +134,10 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
       setIsOpen(false);
       setAmount('');
       setNote('');
+      setSlipUrl(null);
+      setDriveFileId(null);
+      setTime(getBangkokTimeString());
+      setDate(getBangkokDateString());
       onSuccess();
     } catch (err: any) {
       setError(err.message || 'บันทึกไม่สำเร็จ');
@@ -213,6 +264,62 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
                 </div>
               )}
 
+              {/* Slip Upload & OCR */}
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                {slipUrl ? (
+                  <div className="flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-base">🖼️</span>
+                      <span className="text-emerald-700 dark:text-emerald-300 font-medium truncate">แนบรูปสลิปเรียบร้อยแล้ว</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a
+                        href={slipUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-1 rounded-lg hover:bg-emerald-100/50"
+                      >
+                        ดูรูป
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => { setSlipUrl(null); setDriveFileId(null); }}
+                        className="p-1 text-slate-400 hover:text-red-500 rounded-lg"
+                        title="ลบรูปสลิป"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={uploadingSlip}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all disabled:opacity-50"
+                  >
+                    {uploadingSlip ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                        <span>กำลังอัปโหลดและประมวลผลสลิปด้วย AI...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span>📷 อัปโหลดสลิป (ให้ AI ช่วยเติมข้อมูลอัตโนมัติ)</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
               {/* Amount */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -304,17 +411,31 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
                 </div>
               )}
 
-              {/* Date */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  วันที่
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
+              {/* Date & Time */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    📅 วันที่
+                  </label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    ⏰ เวลา (ปรับได้ก่อนบันทึก)
+                  </label>
+                  <input
+                    type="time"
+                    step="1"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               {/* Note */}

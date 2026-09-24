@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ListOrdered, Calculator, Home, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+import { LayoutDashboard, ListOrdered, Calculator, Home } from 'lucide-react';
 import ManualTransactionModal from './Transactions/ManualTransactionModal';
 
 interface MobileBottomNavProps {
@@ -13,22 +12,6 @@ interface MobileBottomNavProps {
 
 export default function MobileBottomNav({ onSyncComplete, onRefresh }: MobileBottomNavProps) {
   const pathname = usePathname();
-  const [syncing, setSyncing] = useState(false);
-
-  const handleQuickSync = async () => {
-    if (syncing) return;
-    setSyncing(true);
-    try {
-      const res = await fetch('/api/sync', { method: 'POST' });
-      await res.json();
-      if (onSyncComplete) onSyncComplete();
-      if (onRefresh) onRefresh();
-    } catch {
-      // ignore
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   return (
     <div
@@ -104,18 +87,6 @@ export default function MobileBottomNav({ onSyncComplete, onRefresh }: MobileBot
           </div>
           <span className="text-[10px] tracking-tight">ผ่อนบ้าน</span>
         </Link>
-
-        {/* Sync Button */}
-        <button
-          onClick={handleQuickSync}
-          disabled={syncing}
-          className="flex flex-col items-center gap-1 py-1 px-1.5 sm:px-2 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all disabled:opacity-50"
-        >
-          <div className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
-            <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin text-emerald-500' : ''}`} />
-          </div>
-          <span className="text-[10px] tracking-tight">{syncing ? 'ซิงค์...' : 'ซิงค์สลิป'}</span>
-        </button>
       </div>
     </div>
   );

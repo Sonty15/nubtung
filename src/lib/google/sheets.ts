@@ -12,6 +12,7 @@ import {
   deserializeExcludedTransactionIds,
 } from '@/lib/tax/category-mapping';
 import { defaultDeductions } from '@/lib/tax/tax-engine';
+import { normalizeDateString, normalizeTimeString } from '@/lib/utils/date';
 
 const TRANSACTIONS_SHEET = '📝 รายการทั้งหมด';
 const SUMMARY_SHEET = '📊 สรุปยอด';
@@ -57,45 +58,7 @@ const DEFAULT_CATEGORIES = [
   'อื่นๆ',
 ];
 
-export function normalizeDateString(dateStr?: string): string {
-  if (!dateStr) return '';
-  const clean = dateStr.trim();
-  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(clean)) {
-    const [y, m, d] = clean.split('-');
-    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  }
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) {
-    const [d, m, y] = clean.split('/');
-    let year = parseInt(y, 10);
-    if (year > 2400) year -= 543;
-    return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  }
-  return clean;
-}
-
-export function normalizeTimeString(timeStr?: string): string {
-  if (!timeStr) return '00:00:00';
-  const clean = timeStr.trim();
-  if (!clean) return '00:00:00';
-
-  const isPM = /pm/i.test(clean);
-  const isAM = /am/i.test(clean);
-  const numOnly = clean.replace(/[^\d:]/g, '');
-  const parts = numOnly.split(':');
-
-  let h = parseInt(parts[0] || '0', 10);
-  let m = parseInt(parts[1] || '0', 10);
-  let s = parseInt(parts[2] || '0', 10);
-
-  if (isPM && h < 12) h += 12;
-  if (isAM && h === 12) h = 0;
-
-  const hh = String(h).padStart(2, '0');
-  const mm = String(m).padStart(2, '0');
-  const ss = String(s).padStart(2, '0');
-
-  return `${hh}:${mm}:${ss}`;
-}
+export { normalizeDateString, normalizeTimeString };
 
 export async function getSheetsClient() {
   const auth = getGoogleAuth();

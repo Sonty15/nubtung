@@ -13,7 +13,7 @@ export interface Transaction {
   note: string;
   slipUrl?: string;
   driveFileId?: string;
-  source: 'AUTO_SYNC' | 'MANUAL';
+  source: 'AUTO_SYNC' | 'MANUAL' | 'STATEMENT';
   createdAt: string;
 }
 

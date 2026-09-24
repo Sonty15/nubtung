@@ -3,6 +3,7 @@ import { appendTransactionRow, getAllTransactions, ensureSheetStructure } from '
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
 import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
+import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
 
 export function getLineClient() {
   const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
@@ -134,9 +135,8 @@ async function handleTextMessage(replyToken: string, text: string) {
         else if (/อาหาร|กาแฟ|cafe|amazon|กะเพรา/i.test(lower)) category = 'อาหารและเครื่องดื่ม';
       }
 
-      const now = new Date();
-      const dateStr = now.toISOString().split('T')[0];
-      const timeStr = now.toTimeString().split(' ')[0];
+      const dateStr = getBangkokDateString();
+      const timeStr = getBangkokTimeString();
       const txId = `line_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
       const newTx: Transaction = {
@@ -149,7 +149,7 @@ async function handleTextMessage(replyToken: string, text: string) {
         account,
         note: `LINE: ${trimmed.substring(0, 80)}`,
         source: 'AUTO_SYNC',
-        createdAt: now.toISOString(),
+        createdAt: new Date().toISOString(),
       };
 
       await ensureSheetStructure();
@@ -198,9 +198,8 @@ async function handleTextMessage(replyToken: string, text: string) {
       else if (/เซเว่น|7-eleven|ของใช้|ซื้อของ/i.test(itemDesc)) category = 'ของใช้ในบ้าน/ซูเปอร์';
       else if (/เสื้อ|รองเท้า|shopee|lazada|ช้อป/i.test(itemDesc)) category = 'ช้อปปิ้ง';
 
-      const now = new Date();
-      const dateStr = now.toISOString().split('T')[0];
-      const timeStr = now.toTimeString().split(' ')[0];
+      const dateStr = getBangkokDateString();
+      const timeStr = getBangkokTimeString();
       const txId = `line_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
       const newTx: Transaction = {
@@ -213,7 +212,7 @@ async function handleTextMessage(replyToken: string, text: string) {
         account: 'เงินสด',
         note: `พิมพ์ผ่าน LINE: ${itemDesc}`,
         source: 'MANUAL',
-        createdAt: now.toISOString(),
+        createdAt: new Date().toISOString(),
       };
 
       await ensureSheetStructure();

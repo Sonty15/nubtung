@@ -102,4 +102,46 @@ describe('Slip Transaction Resolver', () => {
     assert.strictEqual(result.isSelfTransfer, false);
     assert.strictEqual(result.category, 'เงินเดือน/รายรับ');
   });
+
+  it('correctly classifies buying digital lottery as EXPENSE and not self-transfer', () => {
+    const raw: RawSlipOcrResult = {
+      isReceiveQrOrRequest: false,
+      amount: 80,
+      date: '2026-09-16',
+      time: '14:20:00',
+      senderName: 'นาย วรโชติ วงศ์เครือ',
+      receiverName: 'สำนักงานสลากกินแบ่งรัฐบาล',
+      receiverAccount: '006-xxx-9289',
+      suggestedCategory: 'โอนระหว่างบัญชี',
+      note: 'ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ',
+    };
+
+    const result = resolveSlipTransaction(raw, 'เป๋าตัง');
+
+    assert.strictEqual(result.type, 'EXPENSE');
+    assert.strictEqual(result.isSelfTransfer, false);
+    assert.notStrictEqual(result.category, 'โอนระหว่างบัญชี');
+    assert.strictEqual(result.amount, 80);
+  });
+
+  it('does not classify transfer to another person as self-transfer even if receiver account contains digits from Paotang', () => {
+    const raw: RawSlipOcrResult = {
+      isReceiveQrOrRequest: false,
+      amount: 350,
+      date: '2026-09-20',
+      time: '18:00:00',
+      senderName: 'นาย วรโชติ ว',
+      receiverName: 'นาย พงศกร มุ่งมั่น',
+      receiverAccount: 'xxx-x-x9289-x',
+      suggestedCategory: 'โอนระหว่างบัญชี',
+      note: 'โอนเงิน',
+    };
+
+    const result = resolveSlipTransaction(raw, 'K PLUS');
+
+    assert.strictEqual(result.type, 'EXPENSE');
+    assert.strictEqual(result.isSelfTransfer, false);
+    assert.notStrictEqual(result.category, 'โอนระหว่างบัญชี');
+    assert.strictEqual(result.note, 'นาย พงศกร มุ่งมั่น');
+  });
 });
