@@ -28,6 +28,7 @@ import {
   isTransactionExcluded,
   getTransactionStatusInfo,
 } from '@/lib/tax/tax-breakdown-helpers';
+import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
 
 export interface IncomeBreakdownModalProps {
   isOpen: boolean;
@@ -49,20 +50,14 @@ export default function IncomeBreakdownModal({
   excludedIds,
   onToggleExclude,
 }: IncomeBreakdownModalProps) {
+  const { closeModal } = useHistoryModal({
+    isOpen,
+    onClose,
+    modalId: 'income-breakdown-modal',
+  });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTab, setFilterTab] = useState<'ALL' | 'TAXABLE' | 'EXEMPT'>('ALL');
-
-  // Handle ESC key to close modal
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -162,12 +157,12 @@ export default function IncomeBreakdownModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="income-breakdown-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/60 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6 bg-slate-950/60 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) closeModal();
       }}
     >
-      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[92vh] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-200 animate-in zoom-in-95">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[92vh] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden overscroll-contain transition-all duration-200 animate-in zoom-in-95">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800 shrink-0 space-y-4">
           <div className="flex items-start justify-between gap-3">
@@ -199,7 +194,7 @@ export default function IncomeBreakdownModal({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={closeModal}
               className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer shrink-0"
               aria-label="ปิดหน้าต่าง"
             >
@@ -495,7 +490,7 @@ export default function IncomeBreakdownModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeModal}
             className="px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm transition-colors cursor-pointer text-center"
           >
             ปิดหน้าต่าง

@@ -19,6 +19,7 @@ import {
   Calendar,
   CopyCheck,
 } from 'lucide-react';
+import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -52,11 +53,21 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
 
   // Quick Note Edit Modal (for Auto-sync transactions)
   const [editingNoteTx, setEditingNoteTx] = useState<Transaction | null>(null);
+  const { closeModal: closeNoteEdit } = useHistoryModal({
+    isOpen: Boolean(editingNoteTx),
+    onClose: () => setEditingNoteTx(null),
+    modalId: 'edit-note-tx',
+  });
   const [editNoteText, setEditNoteText] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
 
   // Full Edit Modal (for Manual transactions)
   const [editingManualTx, setEditingManualTx] = useState<Transaction | null>(null);
+  const { closeModal: closeManualEdit } = useHistoryModal({
+    isOpen: Boolean(editingManualTx),
+    onClose: () => setEditingManualTx(null),
+    modalId: 'edit-manual-tx',
+  });
   const [manualType, setManualType] = useState<TransactionType>('EXPENSE');
   const [manualAmount, setManualAmount] = useState('');
   const [manualCategory, setManualCategory] = useState(CATEGORIES[0]);
@@ -164,7 +175,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       }
 
       editingNoteTx.note = editNoteText;
-      setEditingNoteTx(null);
+      closeNoteEdit();
       if (onRefresh) onRefresh();
     } catch (err: any) {
       alert(`บันทึกรายละเอียดไม่สำเร็จ: ${err.message}`);
@@ -213,7 +224,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       editingManualTx.time = manualTime;
       editingManualTx.note = manualNote;
 
-      setEditingManualTx(null);
+      closeManualEdit();
       if (onRefresh) onRefresh();
     } catch (err: any) {
       alert(`แก้ไขรายการไม่สำเร็จ: ${err.message}`);
@@ -632,10 +643,16 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
 
       {/* Full Edit Modal for MANUAL Transactions */}
       {editingManualTx && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors">
+        <div
+          className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+          onClick={closeManualEdit}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto overscroll-contain p-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => setEditingManualTx(null)}
+              onClick={closeManualEdit}
               className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
               <X className="w-5 h-5" />
@@ -771,7 +788,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               <div className="pt-2 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setEditingManualTx(null)}
+                  onClick={closeManualEdit}
                   className="px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors"
                 >
                   ยกเลิก
@@ -792,10 +809,16 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
 
       {/* Quick Edit Note / Comment Modal for AUTO_SYNC Transactions */}
       {editingNoteTx && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors">
+        <div
+          className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+          onClick={closeNoteEdit}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto overscroll-contain p-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => setEditingNoteTx(null)}
+              onClick={closeNoteEdit}
               className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
               <X className="w-5 h-5" />
@@ -831,7 +854,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               <div className="flex items-center justify-end gap-2.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => setEditingNoteTx(null)}
+                  onClick={closeNoteEdit}
                   className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors"
                 >
                   ยกเลิก

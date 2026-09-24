@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, X, Building2, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { getBangkokDateString } from '@/lib/utils/date';
+import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
 
 interface ManualPaymentModalProps {
   isOpen?: boolean;
@@ -22,6 +23,14 @@ export default function ManualPaymentModal({
   onSuccess,
   defaultAccountId = '011690010474',
 }: ManualPaymentModalProps) {
+  const { closeModal } = useHistoryModal({
+    isOpen,
+    onClose: () => {
+      if (onClose) onClose();
+    },
+    modalId: 'mortgage-payment-modal',
+  });
+
   const [accountId, setAccountId] = useState(defaultAccountId);
   const [paymentDate, setPaymentDate] = useState(() => getBangkokDateString());
   const [installmentNo, setInstallmentNo] = useState('');
@@ -120,7 +129,7 @@ export default function ManualPaymentModal({
       setInstallmentNo('');
 
       onSuccess();
-      if (onClose) onClose();
+      closeModal();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
     } finally {
@@ -129,12 +138,18 @@ export default function ManualPaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 relative">
+    <div
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+      onClick={closeModal}
+    >
+      <div
+        className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto overscroll-contain p-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 relative"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close Button */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeModal}
           className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
         >
           <X className="w-5 h-5" />
@@ -344,7 +359,7 @@ export default function ManualPaymentModal({
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={onClose}
+              onClick={closeModal}
               className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               ยกเลิก

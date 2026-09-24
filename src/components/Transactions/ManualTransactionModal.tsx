@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { Plus, X, Upload, RefreshCw } from 'lucide-react';
 import { TransactionType } from '@/types';
 import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
+import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
 
 interface ManualTransactionModalProps {
   onSuccess: () => void;
@@ -25,6 +26,11 @@ const CATEGORIES = [
 
 export default function ManualTransactionModal({ onSuccess, isMobileFab = false }: ManualTransactionModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const { closeModal } = useHistoryModal({
+    isOpen,
+    onClose: () => setIsOpen(false),
+    modalId: 'manual-tx-modal',
+  });
   const [loading, setLoading] = useState(false);
   const [uploadingSlip, setUploadingSlip] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +137,7 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
         throw new Error(data.error || 'Failed to record transaction');
       }
 
-      setIsOpen(false);
+      closeModal();
       setAmount('');
       setNote('');
       setSlipUrl(null);
@@ -167,10 +173,16 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
       )}
 
       {isOpen && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors">
+        <div
+          className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto overscroll-contain p-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={closeModal}
               className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
               <X className="w-5 h-5" />
@@ -455,7 +467,7 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
               <div className="pt-3 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeModal}
                   className="px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors"
                 >
                   ยกเลิก
