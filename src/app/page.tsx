@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Building2,
   ListOrdered,
+  Info,
 } from 'lucide-react';
 
 const THAI_MONTHS = [
@@ -255,6 +256,46 @@ export default function DashboardPage() {
           useSalaryCycle={useSalaryCycle}
           onToggleSalaryCycle={setUseSalaryCycle}
         />
+
+        {/* Helpful Banner when current filtered period has no transactions yet */}
+        {!loading && allTransactions.length > 0 && filteredTransactions.length === 0 && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in">
+            <div className="flex items-start sm:items-center gap-2.5 text-amber-900 dark:text-amber-200">
+              <Info className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5 sm:mt-0" />
+              <span>
+                {periodMode === 'MONTH' && useSalaryCycle ? (
+                  <>
+                    เพิ่งเริ่มต้นรอบเงินเดือนใหม่ (<strong>{getSalaryCycleRange(selectedDate, 26).label}</strong>) และยังไม่มีรายการบันทึกในรอบนี้
+                  </>
+                ) : (
+                  <>ยังไม่มีรายการบันทึกในช่วงเวลานี้</>
+                )}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {periodMode === 'MONTH' && useSalaryCycle && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prev = new Date(selectedDate);
+                    prev.setMonth(prev.getMonth() - 1);
+                    setSelectedDate(prev);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-200 dark:bg-amber-800/80 hover:bg-amber-300 dark:hover:bg-amber-700 text-amber-950 dark:text-amber-100 font-bold transition-all text-xs active:scale-95 cursor-pointer shadow-xs"
+                >
+                  👈 ดูรอบก่อนหน้า ({getSalaryCycleRange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, selectedDate.getDate()), 26).label})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setPeriodMode('ALL')}
+                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium transition-all text-xs cursor-pointer shadow-xs"
+              >
+                ดูทั้งหมด (ALL)
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 4 Summary Cards + Real Account Balances Header */}
         <SummaryCards
